@@ -412,17 +412,18 @@ const CONFIG = {
   // --- Estados ---
   estadosConPrecio: ["LIBRE", "DISPONIBLE"],  // solo estos muestran precio y cotizador
   coloresEstado: {
-    "LIBRE": "#43a047", "DISPONIBLE": "#43a047",   // verde
-    "VENDIDO": "#e53935",                          // rojo
-    "SEPARADO": "#1e88e5",                         // azul
-    "BLOQUEADO": "#000000",                        // negro
-    "AGUA": "#4fc3f7",                             // celeste
-    "RESERVADO": "#fb8c00"                         // naranja (solo si aparece en la hoja)
+    // Tonos sobrios (menos saturados) para un aspecto más profesional
+    "LIBRE": "#2f9e62", "DISPONIBLE": "#2f9e62",   // verde
+    "VENDIDO": "#c8474a",                          // rojo
+    "SEPARADO": "#3a78c9",                         // azul
+    "BLOQUEADO": "#1c1c1c",                        // negro
+    "AGUA": "#5bbbe0",                             // celeste
+    "RESERVADO": "#d98a3a"                         // naranja (solo si aparece en la hoja)
   },
   colorSinDatos: "#bdbdbd",   // gris: lote sin fila en el Sheets o con un estado no listado arriba
   colorConstruccion: "#37474f",
-  opacidadLotes: 0.9,      // intensidad del color de estado del lote (0 a 1)
-  opacidadCasas: 0.5,      // intensidad de la casa plana encima del lote: más baja = se ve más el color del estado
+  opacidadLotes: 0.62,     // intensidad del color de estado del lote (0 a 1)
+  opacidadCasas: 0.35,      // intensidad de la casa plana encima del lote: más baja = se ve más el color del estado
   zoomInicial: 18.6,       // zoom de arranque (más cerca para ver los números de lote)
   // Vista de arranque: "3d" (inclinada) o "2d" (desde arriba). El botón 2D/3D cambia entre ambas.
   vistaInicial: "3d",
@@ -1097,7 +1098,11 @@ map.on("load", async () => {
   map.addLayer({ id: "portico", type: "fill", source: "plano", filter: cat("PORTICO"), paint: { "fill-color": ["get", "fill"], "fill-opacity": ["get", "fill_op"] } });
   map.addLayer({
     id: "lotes-borde", type: "line", source: "plano", filter: cat("LOTE"),
-    paint: { "line-color": "#000000", "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 2.6, 0.9] }
+    paint: {
+      "line-color": ["case", ["boolean", ["feature-state", "hover"], false], "#111111", "#ffffff"],
+      "line-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 1, 0.85],
+      "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 2.4, 0.8]
+    }
   });
   map.addLayer({ id: "veredas", type: "line", source: "plano", filter: cat("VEREDA"), paint: { "line-color": "#fdd835", "line-width": 2.2, "line-opacity": 0.9 } });
   map.addLayer({ id: "limite-proyecto", type: "line", source: "plano", filter: cat("LIMITE_PROYECTO"), paint: { "line-color": "#ffffff", "line-width": 3, "line-dasharray": [2, 2] } });
@@ -1235,7 +1240,7 @@ function construirLeyenda(estados) {
   estados.sort((a, b) => rango(a) - rango(b));
   const items = estados.map((e) => [CONFIG.coloresEstado[e] || CONFIG.colorSinDatos, e.charAt(0) + e.slice(1).toLowerCase()]);
   items.push([CONFIG.colorConstruccion, "Área construida"], ["#fdd835", "Vereda"]);
-  $("leyenda").innerHTML = items.map(([c, t]) => `<div><span class="dot" style="background:${c}"></span> ${t}</div>`).join("");
+  $("leyenda").innerHTML = items.map(([c, t]) => `<div><span class="dot" style="background:${c};opacity:${t === "Vereda" ? 0.9 : CONFIG.opacidadLotes + 0.15}"></span> ${t}</div>`).join("");
 }
 
 // ==============================================================
