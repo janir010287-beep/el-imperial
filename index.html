@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>El Imperial — Visor de Lotes</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@1,800&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marzipano@0.10.2/dist/marzipano.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  /* ============================================================
+     IDENTIDAD VISUAL — cambia estos colores cuando llegue el logo
+     ============================================================ */
+  :root {
+    --barra: #ffffff;        /* fondo de la barra lateral (claro, para que resalten ambos logos) */
+    --primario: #0b5a1c;     /* verde del logo: títulos, botones */
+    --dorado: #f2c500;       /* amarillo del sol del logo: ítem activo, detalles */
+    --suave: #edf5ee;        /* fondos de resultados */
+    --texto: #2b2f36;
+    --gris: #6b7280;
+    --fuente-titulo: "Archivo", "Arial Black", Arial, sans-serif;
+    --fuente: "Nunito Sans", "Segoe UI", Arial, sans-serif;
+  }
+
+  html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; font-family: var(--fuente); color: var(--texto); }
+  #map { position: absolute; top: 44px; bottom: 0; left: 210px; right: 0; }
+
+  #encabezado {
+    position: absolute; top: 0; left: 210px; right: 0; height: 44px; z-index: 5;
+    background: #ffffff; display: flex; align-items: center; justify-content: center;
+    padding: 0 16px; box-shadow: 0 1px 6px rgba(0,0,0,0.2);
+  }
+  #encabezado .titulo-proyecto { font-family: var(--fuente-titulo); font-style: italic; font-size: 18px; font-weight: 800; color: #111; letter-spacing: 0.5px; }
+
+  #sidebar-izq {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 210px; z-index: 6;
+    background: var(--barra); overflow-y: auto; display: flex; flex-direction: column;
+    border-right: 1px solid #e3e8e4; box-shadow: 1px 0 6px rgba(0,0,0,0.08);
+  }
+  #sidebar-izq > * { flex-shrink: 0; }  /* evita que los logos se encimen con el menú en pantallas bajas */
+  .sidebar-logo-top { padding: 14px 20px 10px; text-align: center; min-height: 40px; border-bottom: 1px solid #eef1ef; margin-bottom: 4px; }
+  .sidebar-logo-top img { max-width: 92px; max-height: 72px; display: inline-block; }
+  .sidebar-logo-top .logo-texto { font-family: var(--fuente-titulo); color: var(--primario); font-size: 20px; letter-spacing: 2px; padding: 18px 0 6px; }
+  .sidebar-logo-bottom { margin-top: auto; padding: 14px 20px 18px; text-align: center; }
+  .sidebar-logo-bottom img { width: 96px; height: 96px; display: inline-block; }
+  #link-admin {
+    display: block; text-align: center; padding: 8px 12px; margin: 14px 14px 10px;
+    font-size: 11px; color: #6b7280; text-decoration: none; border: 1px solid #d9dfdb; border-radius: 5px;
+  }
+  #link-admin:hover { color: var(--primario); border-color: var(--primario); }
+  #sidebar-izq .item {
+    display: flex; align-items: center; gap: 10px; padding: 14px 18px; text-decoration: none;
+    color: #26352a; font-size: 14px; cursor: pointer; border-left: 3px solid transparent;
+  }
+  #sidebar-izq .item:hover { background: #eef5ef; }
+  #sidebar-izq .item.activo { background: var(--primario); color: #ffffff; border-left-color: var(--dorado); font-weight: 700; }
+  #sidebar-izq .item .icono { font-size: 17px; width: 20px; text-align: center; }
+  #sidebar-izq .item .externo { margin-left: auto; font-size: 11px; opacity: 0.6; }
+
+  #vista-secciones {
+    position: absolute; top: 44px; bottom: 0; left: 210px; right: 0; z-index: 3;
+    background: #f5f6f8; display: none; overflow-y: auto;
+  }
+  .vista-seccion { display: none; max-width: 760px; margin: 0 auto; padding: 34px 30px 60px; }
+  .vista-seccion.activa { display: block; }
+  .vista-seccion h2 { font-family: var(--fuente-titulo); font-style: italic; color: var(--primario); margin: 0 0 6px; }
+  .vista-seccion .subtitulo { color: var(--gris); font-size: 13px; margin-bottom: 22px; }
+  .tarjeta-info { background: white; border-radius: 8px; padding: 18px 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  .tarjeta-info h3 { margin: 0 0 8px; color: var(--primario); font-size: 15px; }
+  .tarjeta-info p { margin: 4px 0; font-size: 13px; color: #444; line-height: 1.5; }
+  .tarjeta-info a { color: #1565c0; }
+  .campo-form label { font-size: 12px; font-weight: 600; color: #555; }
+  .sel-fin {
+    width: 100%; padding: 9px 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px;
+    font-size: 14px; font-family: inherit; background: #fff; cursor: pointer; box-sizing: border-box;
+  }
+  .sel-fin:disabled { background: #f3f4f6; color: #999; cursor: not-allowed; }
+  .nota-fin { font-size: 11.5px; color: var(--gris); margin-top: 8px; }
+  .campo-form input, .campo-form textarea {
+    width: 100%; padding: 9px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px;
+    font-size: 13px; box-sizing: border-box; font-family: inherit;
+  }
+  #mapa-ubicacion { width: 100%; height: 340px; border-radius: 8px; margin-bottom: 16px; border: 0; }
+
+  /* Botón 2D / 3D (debajo del zoom del mapa) */
+  .ctrl-vista button { width: 34px !important; font-family: var(--fuente); font-size: 12px; font-weight: 800; color: #444; }
+  .ctrl-vista button.activo { background: var(--primario) !important; color: #fff; }
+  .ctrl-vista button:not(.activo):hover { background: #eef5ef !important; }
+  .ctrl-vista .btn-casas { display: flex; align-items: center; justify-content: center; color: #444; }
+
+  /* Modelo de vivienda embebido (recorrido Marzipano) */
+  #vista-modelo { position: absolute; top: 44px; bottom: 0; left: 210px; right: 0; z-index: 3; background: #000; display: none; }
+  #vista-modelo iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  #modelo-cargando { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ccc; font-size: 14px; pointer-events: none; }
+
+  /* Panel derecho */
+  #panel-derecho {
+    position: absolute; top: 44px; bottom: 0; right: 0; width: 330px; z-index: 6;
+    background: #ffffff; box-shadow: -2px 0 10px rgba(0,0,0,0.22);
+    transform: translateX(100%); transition: transform 0.25s ease;
+    overflow-y: auto; padding: 18px; box-sizing: border-box;
+  }
+  #panel-derecho.abierto { transform: translateX(0); }
+  #panel-derecho .cerrar {
+    position: absolute; top: 8px; right: 8px; font-size: 20px; cursor: pointer; color: #555;
+    width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; background: rgba(0,0,0,0.06); z-index: 10;
+  }
+  #panel-derecho h2 { margin: 4px 0 4px; font-size: 21px; color: var(--primario); font-family: var(--fuente-titulo); font-style: italic; }
+  .estado-badge { display: inline-block; padding: 3px 11px; border-radius: 20px; font-size: 12px; font-weight: 700; color: white; margin-bottom: 12px; }
+  .fila-dato { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+  .fila-dato span:first-child { color: #777; }
+  .fila-dato span:last-child { font-weight: 600; text-align: right; }
+  .subtitulo-panel { margin: 18px 0 8px; font-size: 15px; color: #333; border-top: 1px solid #eee; padding-top: 14px; font-weight: 700; }
+
+  /* ---------------- Cotizador (mismo componente en panel y en Financiamiento) ---------------- */
+  .toggle-pago { display: flex; gap: 8px; margin-bottom: 12px; }
+  .toggle-pago button {
+    flex: 1; padding: 8px; border: 1px solid var(--primario); background: white; color: var(--primario);
+    border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 700; font-family: inherit;
+  }
+  .toggle-pago button.activo { background: var(--primario); color: white; }
+  .cot-campo { margin-bottom: 10px; }
+  .cot-campo label { display: block; font-size: 12px; color: #666; margin-bottom: 3px; font-weight: 600; }
+  .cot-campo input { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 13px; font-family: inherit; }
+  .cot-fila-input { display: flex; gap: 6px; }
+  .cot-fila-input input { flex: 1; }
+  .toggle-mini { display: flex; gap: 4px; }
+  .toggle-mini button { padding: 7px 10px; border: 1px solid var(--primario); background: #fff; color: var(--primario); border-radius: 5px; cursor: pointer; font-weight: 700; }
+  .toggle-mini button.activo { background: var(--primario); color: #fff; }
+  .cot-res { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+  .cot-destacado { background: var(--suave); margin-top: 6px; padding: 10px; border-radius: 6px; font-weight: 700; font-size: 15px; color: var(--primario); }
+  .cot-nota { font-size: 11.5px; color: var(--gris); margin: 0 0 10px; }
+  .cot-aviso { color: #b42318; font-size: 11.5px; margin: 6px 0; }
+  .cot-bloqueado { background: #fff6e5; border: 1px solid #f3d9a4; color: #7a4b00; font-size: 13px; padding: 12px; border-radius: 6px; line-height: 1.45; }
+  .cot-crono { margin-top: 12px; }
+  .cot-crono .tit { font-size: 12px; font-weight: 700; color: #333; margin-bottom: 4px; }
+  .cot-crono .caja { max-height: 220px; overflow-y: auto; border: 1px solid #e3e6ea; border-radius: 5px; }
+  .cot-crono table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .cot-crono thead { position: sticky; top: 0; background: var(--suave); color: var(--primario); }
+  .cot-crono th, .cot-crono td { padding: 5px 6px; text-align: right; border-bottom: 1px solid #f0f0f0; }
+  .cot-crono th:first-child, .cot-crono td:first-child, .cot-crono th:nth-child(2), .cot-crono td:nth-child(2) { text-align: left; }
+  .cot-crono tr.final td { font-weight: 700; background: #fbf5e6; }
+  .btn-pdf { width: 100%; margin-top: 16px; padding: 11px; background: var(--primario); color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .estado-pdf { text-align: center; font-size: 11px; color: #888; margin-top: 6px; }
+  /* Versión amplia (sección Financiamiento) */
+  .cot-amplio .cot-crono .caja { max-height: 420px; }
+  .cot-amplio .cot-crono table { font-size: 12.5px; }
+  .cot-amplio .cot-destacado { font-size: 18px; }
+
+  /* Barra de filtros */
+  #barra-filtros {
+    position: absolute; top: 56px; left: 222px; right: 58px; z-index: 2;
+    background: rgba(255,255,255,0.96); border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,0.25); font-size: 12px;
+  }
+  #pestana-filtros { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 14px; cursor: pointer; font-weight: 700; color: var(--primario); user-select: none; }
+  #flecha-filtros { transition: transform 0.2s ease; font-size: 10px; }
+  #barra-filtros.colapsada #flecha-filtros { transform: rotate(180deg); }
+  #contenido-filtros { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding: 0 14px 12px; }
+  #barra-filtros.colapsada #contenido-filtros { display: none; }
+  #barra-filtros .campo-filtro { display: flex; flex-direction: column; gap: 3px; }
+  #barra-filtros label { color: #555; font-weight: 600; }
+  #barra-filtros select { padding: 5px 6px; border: 1px solid #ccc; border-radius: 4px; max-width: 140px; font-family: inherit; }
+  #barra-filtros .campo-slider { width: 170px; }
+  #barra-filtros .valores-slider { display: flex; justify-content: space-between; color: #333; font-weight: 600; margin-bottom: 2px; }
+  #barra-filtros .doble-slider { position: relative; height: 22px; }
+  #barra-filtros .doble-slider input[type="range"] { position: absolute; width: 100%; top: 7px; margin: 0; pointer-events: none; -webkit-appearance: none; background: transparent; }
+  #barra-filtros .doble-slider input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 14px; height: 14px; border-radius: 50%; background: var(--primario); cursor: pointer; border: 2px solid white; box-shadow: 0 0 2px rgba(0,0,0,0.5); }
+  #barra-filtros .doble-slider input[type="range"]::-moz-range-thumb { pointer-events: auto; width: 14px; height: 14px; border-radius: 50%; background: var(--primario); cursor: pointer; border: 2px solid white; }
+  #barra-filtros .doble-slider .riel { position: absolute; top: 9px; left: 0; right: 0; height: 4px; background: #ddd; border-radius: 2px; }
+  #barra-filtros button { padding: 6px 12px; border: 1px solid #999; background: white; border-radius: 5px; cursor: pointer; font-size: 12px; color: #555; font-family: inherit; }
+  #contador-filtro { margin-left: auto; font-weight: 700; color: var(--primario); align-self: center; }
+
+  /* Visor 360 (se activa solo si el GeoJSON trae puntos TOUR_360) */
+  #modal-360 { position: absolute; bottom: 20px; right: 20px; width: 480px; height: 320px; z-index: 20; background: #000; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.5); border-radius: 10px; overflow: hidden; }
+  #modal-360.completo { top: 44px; left: 210px; right: 0; bottom: 0; width: auto; height: auto; border-radius: 0; }
+  #modal-360 .pano { position: absolute; inset: 0; }
+  #modal-360 .btn-360 { position: absolute; top: 14px; z-index: 21; width: 36px; height: 36px; border-radius: 50%; background: rgba(0,0,0,0.6); color: white; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid white; }
+  #modal-360 .titulo-360 { position: absolute; top: 14px; left: 14px; z-index: 21; background: rgba(0,0,0,0.6); color: white; padding: 7px 14px; border-radius: 20px; font-size: 13px; max-width: 260px; }
+  #modal-360 .nav-360 { position: absolute; bottom: 18px; left: 0; right: 0; z-index: 21; display: flex; align-items: center; justify-content: center; gap: 16px; }
+  #modal-360 .nav-360 button { width: 40px; height: 40px; border-radius: 50%; border: 2px solid white; background: rgba(0,0,0,0.6); color: white; font-size: 18px; cursor: pointer; }
+  #modal-360 .nav-360 .contador { background: rgba(0,0,0,0.6); color: white; padding: 6px 14px; border-radius: 20px; font-size: 13px; }
+
+  #leyenda { position: absolute; bottom: 24px; left: 222px; z-index: 2; background: rgba(255,255,255,0.94); padding: 10px 14px; border-radius: 8px; font-size: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+  #leyenda div { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  #leyenda span.dot { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--dorado); outline-offset: 2px; }
+
+  /* Responsive */
+  #btn-hamburguesa { display: none; font-size: 22px; cursor: pointer; padding: 0 4px; color: var(--primario); background: none; border: 0; }
+  #fondo-oscuro-movil { display: none; position: absolute; top: 44px; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.45); z-index: 4; }
+  #fondo-oscuro-movil.visible { display: block; }
+  @media (max-width: 760px) {
+    #encabezado { left: 0; justify-content: flex-start; gap: 14px; padding: 0 14px; }
+    #btn-hamburguesa { display: block; }
+    #sidebar-izq { width: 240px; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 7; }
+    #sidebar-izq.abierta { transform: translateX(0); }
+    #map, #vista-secciones, #vista-modelo { left: 0; }
+    #barra-filtros { left: 12px; }
+    #contenido-filtros { flex-direction: column; align-items: stretch; }
+    #barra-filtros .campo-slider { width: 100%; }
+    #leyenda { left: 12px; }
+    #panel-derecho { width: 100%; }
+    #modal-360 { width: calc(100% - 24px); left: 12px; right: 12px; height: 260px; }
+    #modal-360.completo { left: 0; }
+    .vista-seccion { padding: 22px 16px 50px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #panel-derecho, #sidebar-izq { transition: none; } }
+</style>
+</head>
+<body>
+
+<div id="encabezado">
+  <button id="btn-hamburguesa" aria-label="Abrir menú">☰</button>
+  <div class="titulo-proyecto">EL IMPERIAL</div>
+</div>
+<div id="fondo-oscuro-movil"></div>
+
+<div id="sidebar-izq">
+  <div class="sidebar-logo-top" id="logo-proyecto"></div>
+  <div class="item activo" data-seccion="plano"><span class="icono">🗺️</span> Plano interactivo</div>
+  <div class="item" data-seccion="modelo"><span class="icono">🏠</span> Modelo de vivienda</div>
+  <div class="item" data-seccion="ubicacion"><span class="icono">📍</span> Ubicación</div>
+  <div class="item" data-seccion="financiamiento"><span class="icono">💰</span> Financiamiento</div>
+  <div class="item" data-seccion="documentacion"><span class="icono">📄</span> Documentación</div>
+  <div class="item" data-seccion="contacto"><span class="icono">📞</span> Contacto</div>
+  <a id="link-admin" target="_blank" rel="noopener">🔑 Administrador</a>
+  <div class="sidebar-logo-bottom"><img id="logo-proyecto-img" alt="El Imperial Urbanización" /></div>
+</div>
+
+<div id="map"></div>
+
+<div id="barra-filtros">
+  <div id="pestana-filtros">🔍 Filtros <span id="flecha-filtros">▲</span></div>
+  <div id="contenido-filtros">
+    <div class="campo-filtro campo-slider">
+      <label>Área (m²)</label>
+      <div class="valores-slider"><span id="valor-area-min">-</span><span id="valor-area-max">-</span></div>
+      <div class="doble-slider"><div class="riel"></div><input type="range" id="filtro-area-min"><input type="range" id="filtro-area-max"></div>
+    </div>
+    <div class="campo-filtro campo-slider">
+      <label>Precio (S/) — lotes libres</label>
+      <div class="valores-slider"><span id="valor-precio-min">-</span><span id="valor-precio-max">-</span></div>
+      <div class="doble-slider"><div class="riel"></div><input type="range" id="filtro-precio-min"><input type="range" id="filtro-precio-max"></div>
+    </div>
+    <div class="campo-filtro"><label>Estado</label><select id="filtro-estado"><option value="">Todos</option></select></div>
+    <div class="campo-filtro"><label>Manzana</label><select id="filtro-mz"><option value="">Todas</option></select></div>
+    <button id="btn-limpiar-filtros">Limpiar filtros</button>
+    <span id="contador-filtro"></span>
+  </div>
+</div>
+
+<div id="vista-secciones">
+
+  <div class="vista-seccion" id="seccion-ubicacion">
+    <h2>Ubicación</h2>
+    <div class="subtitulo" id="ubicacion-subtitulo">Ubicación del proyecto El Imperial</div>
+    <iframe id="mapa-ubicacion" allowfullscreen loading="lazy"></iframe>
+    <div class="tarjeta-info">
+      <h3>Puntos de referencia</h3>
+      <p id="lista-referencias">Pendiente: agregar puntos de referencia del proyecto.</p>
+    </div>
+  </div>
+
+  <div class="vista-seccion" id="seccion-financiamiento">
+    <h2>Financiamiento</h2>
+    <div class="subtitulo">Elige un lote libre para simular su cotización al contado o financiada</div>
+    <div class="tarjeta-info">
+      <div style="display:flex; gap:14px; flex-wrap:wrap;">
+        <div class="campo-form" style="flex:1; min-width:160px;">
+          <label for="fin-sel-mz">Manzana</label>
+          <select id="fin-sel-mz" class="sel-fin"><option value="">Cargando lotes…</option></select>
+        </div>
+        <div class="campo-form" style="flex:1; min-width:160px;">
+          <label for="fin-sel-lote">N° de lote</label>
+          <select id="fin-sel-lote" class="sel-fin" disabled><option value="">Elige la manzana primero</option></select>
+        </div>
+      </div>
+      <div class="nota-fin" id="fin-nota">Solo se listan los lotes libres.</div>
+    </div>
+    <div id="fin-contenido" style="display:none;">
+      <div class="tarjeta-info">
+        <h3 id="fin-titulo-lote"></h3>
+        <div class="fila-dato"><span>Área del lote</span><span id="fin-dato-area"></span></div>
+        <div class="fila-dato"><span>Área construida</span><span id="fin-dato-construida"></span></div>
+        <div class="fila-dato"><span>Estado</span><span id="fin-dato-estado"></span></div>
+      </div>
+      <div class="tarjeta-info cot-amplio" id="cot-fin"></div>
+    </div>
+  </div>
+
+  <div class="vista-seccion" id="seccion-documentacion">
+    <h2>Documentación</h2>
+    <div class="subtitulo">Documentos del proyecto</div>
+    <div class="tarjeta-info">
+      <p>La documentación del proyecto está disponible en la siguiente carpeta:</p>
+      <a id="link-documentos" target="_blank" rel="noopener"
+         style="display:inline-block; margin-top:10px; background:var(--primario); color:white; padding:10px 18px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:700;">
+        📁 Ver documentos del proyecto
+      </a>
+    </div>
+  </div>
+
+  <div class="vista-seccion" id="seccion-contacto">
+    <h2>Contacto</h2>
+    <div class="tarjeta-info">
+      <h3>Escríbenos</h3>
+      <p style="margin-bottom:14px;">Déjanos tus datos y un asesor te responderá por WhatsApp.</p>
+      <form id="form-contacto">
+        <div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:12px;">
+          <div class="campo-form" style="flex:1; min-width:200px;"><label>Nombre completo</label><input type="text" id="contacto-nombre" required></div>
+          <div class="campo-form" style="flex:1; min-width:200px;"><label>Teléfono</label><input type="tel" id="contacto-telefono" required></div>
+        </div>
+        <div class="campo-form" style="margin-bottom:12px;"><label>Correo electrónico</label><input type="email" id="contacto-correo"></div>
+        <div class="campo-form" style="margin-bottom:12px;"><label>Lote de interés (opcional)</label><input type="text" id="contacto-lote" placeholder="Ej. A - 1"></div>
+        <div class="campo-form" style="margin-bottom:14px;"><label>Mensaje</label><textarea id="contacto-mensaje" rows="4"></textarea></div>
+        <button type="submit" style="background:#25D366; color:white; border:none; padding:11px 22px; border-radius:6px; font-size:13px; font-weight:700; cursor:pointer;">Enviar por WhatsApp</button>
+      </form>
+    </div>
+    <div class="tarjeta-info" id="tarjeta-empresa">
+      <h3>Mayanga Express</h3>
+      <p>🏡 Desarrolladora del proyecto El Imperial</p>
+      <p id="empresa-telefono"></p>
+      <p id="empresa-direccion"></p>
+      <a id="link-oficina" target="_blank" rel="noopener"
+         style="display:inline-block; margin-top:10px; background:var(--primario); color:white; padding:9px 16px; border-radius:6px; text-decoration:none; font-size:13px; font-weight:700;">
+        📍 Ver oficina en Google Maps
+      </a>
+    </div>
+  </div>
+</div>
+
+<div id="vista-modelo">
+  <iframe id="iframe-modelo" title="Recorrido del modelo de vivienda" allow="fullscreen; accelerometer; gyroscope; xr-spatial-tracking" allowfullscreen></iframe>
+  <div id="modelo-cargando">Cargando recorrido…</div>
+</div>
+
+<div id="leyenda"></div>
+
+<div id="panel-derecho">
+  <span class="cerrar" id="cerrar-panel" role="button" aria-label="Cerrar">✕</span>
+  <h2 id="panel-titulo">Lote</h2>
+  <span class="estado-badge" id="panel-estado-badge"></span>
+  <div class="fila-dato"><span>Manzana</span><span id="dato-mz"></span></div>
+  <div class="fila-dato"><span>Área del lote</span><span id="dato-area"></span></div>
+  <div class="fila-dato"><span>Área construida</span><span id="dato-construida"></span></div>
+  <div class="fila-dato" id="fila-precio"><span>Precio</span><span id="dato-precio"></span></div>
+  <div id="bloque-linderos">
+    <div class="subtitulo-panel">Linderos</div>
+    <div class="fila-dato"><span>Frente</span><span id="dato-frontis"></span></div>
+    <div class="fila-dato"><span>Fondo</span><span id="dato-posterior"></span></div>
+    <div class="fila-dato"><span>Izquierda</span><span id="dato-izquierdo"></span></div>
+    <div class="fila-dato"><span>Derecha</span><span id="dato-derecho"></span></div>
+  </div>
+  <div class="subtitulo-panel">Cotizador</div>
+  <div id="cot-panel"></div>
+</div>
+
+<div id="modal-360">
+  <div class="btn-360" id="cerrar-360" style="right:14px;">✕</div>
+  <div class="btn-360" id="btn-pantalla-completa" style="right:58px;">⛶</div>
+  <div class="titulo-360" id="titulo-360"></div>
+  <div class="pano" id="pano"></div>
+  <div class="nav-360"><button id="tour-anterior">‹</button><span class="contador" id="tour-contador"></span><button id="tour-siguiente">›</button></div>
+</div>
+
+<script>
+// ==============================================================
+// CONFIGURACIÓN DEL PROYECTO — EL IMPERIAL (Mayanga Express)
+// ==============================================================
+const CONFIG = {
+  nombreProyecto: "EL IMPERIAL",
+  empresa: "Mayanga Express",
+  archivoPlano: "EL_IMPERIAL_clasificado.geojson",
+
+  // Imagen del plano de manzaneo (calles, parque, pórtico) que va DEBAJO de los lotes.
+  // Georreferenciada por puntos de control: las 4 esquinas del contorno y el centro del
+  // parque coinciden con el KML con un error menor a 20 cm.
+  // Orden de las esquinas: [sup-izq, sup-der, inf-der, inf-izq] de la imagen.
+  imagenPlano: "PLANO-DE-MANZANEO-v4.png",   // archivo original del cliente, sin modificar
+  // Si no encuentra el nombre de arriba, prueba estos (por si se subió con otro nombre)
+  imagenPlanoAlternativas: ["PLANO DE MANZANEO v4.png", "PLANO-DE-MANZANEO-v4.PNG", "plano_master.png"],
+  esquinasPlano: [
+    [-79.7405749919, -5.9723908783],
+    [-79.7416807120, -5.9709040444],
+    [-79.7407881547, -5.9702466973],
+    [-79.7396824346, -5.9717335312]
+  ],
+
+  // Google Sheets publicado en la web como CSV (Archivo > Compartir > Publicar en la web).
+  // Toma la PRIMERA pestaña; si los lotes están en otra, agrega "&gid=NÚMERO" al final.
+  sheetCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0bwTuQb2WlZMcIIpe6yYf9-seHOaRyjCX25vhtIrn5M57Atms76_pxfqszdbP01wYaT5O2p-pNY_N/pub?output=csv",
+
+  // Recorrido de la casa modelo (Marzipano), se muestra embebido en "Modelo de vivienda"
+  linkModeloVivienda: "https://elimperialv1.netlify.app/",
+  // Link de EDICIÓN del Sheets para el botón 🔑 Administrador (el acceso lo protege Google)
+  linkAdministrador: "https://docs.google.com/spreadsheets/d/1r_hlP7p8sgHkVEZ3rRRjH_5K5DXYVWFeVTKZdrzM0q0/edit?usp=sharing",
+  // Carpeta de Google Drive de la sección Documentación
+  linkDocumentos: "https://drive.google.com/drive/folders/1ZcGK2qA9CWx7Qcjzne9O5DtuiCjlYPPo?usp=sharing",
+  logoSuperior: "logo_techo_propio.png",   // barra lateral, arriba
+  logoInferior: "logo_el_imperial.png",    // barra lateral, abajo
+
+  whatsappContacto: "51920267313",
+  telefonoEmpresa: "920 267 313",
+  linkOficina: "https://maps.app.goo.gl/xqGdxESSk6sVtVU18",
+
+  // --- Estados ---
+  estadosConPrecio: ["LIBRE", "DISPONIBLE"],  // solo estos muestran precio y cotizador
+  coloresEstado: {
+    "LIBRE": "#43a047", "DISPONIBLE": "#43a047",   // verde
+    "VENDIDO": "#e53935",                          // rojo
+    "SEPARADO": "#1e88e5",                         // azul
+    "BLOQUEADO": "#000000",                        // negro
+    "AGUA": "#4fc3f7",                             // celeste
+    "RESERVADO": "#fb8c00"                         // naranja (solo si aparece en la hoja)
+  },
+  colorSinDatos: "#bdbdbd",   // gris: lote sin fila en el Sheets o con un estado no listado arriba
+  colorConstruccion: "#37474f",
+  zoomInicial: 18.6,       // zoom de arranque (más cerca para ver los números de lote)
+  // Vista de arranque: "3d" (inclinada) o "2d" (desde arriba). El botón 2D/3D cambia entre ambas.
+  vistaInicial: "3d",
+  pitch3D: 55,             // inclinación de la vista 3D (máx. 70)
+  // Giro del mapa en grados. -126 deja el plano "derecho", igual que el dibujo:
+  // Calle Los Faiques arriba e Ingreso / Carretera a Garbanzal abajo.
+  bearingPlano: -126,
+  // Casas en 3D: el área construida se levanta como volumen (altura en metros)
+  casas3D: false,          // estado al cargar: true = casas en volumen; false = planas (el botón 🏠 las alterna)
+  alturaCasas: 2.7,
+  // Parque J en 3D (propuesta): senderos, plaza con glorieta, juegos, biosaludable, bancas, faroles y árboles
+  parque3D: true,
+  // Tamaño del ícono 360° (1 = tamaño real del PNG de 256 px)
+  tamanoIcono360: 0.064,
+  zoomNumerosLote: 18.5,   // a partir de este zoom aparecen los números de lote
+
+  // --- Cotizador (montos en soles) ---
+  moneda: "S/",
+  tipoDescuentoPorDefecto: "monto",  // "porcentaje" | "monto" (solo aplica al contado)
+  permitirElegirTipoDescuento: true,
+  inicialDefecto: 5000,
+  cuotasDefecto: 15,
+  cuotasMaximo: 24,
+  cuotaMensualDefecto: 1000,
+  // true  → N cuotas mensuales + 1 cuota final (saldo). Ej: 15 × 1,000 + final 10,000 = 25,000
+  // false → la cuota N es la cuota final. Ej: 14 × 1,000 + cuota 15 de 11,000 = 25,000
+  cuotaFinalAparte: true,
+
+  animarMarcadores360: true   // parpadeo suave de los ojos 360°
+};
+
+// ==============================================================
+// UTILIDADES
+// ==============================================================
+const $ = (id) => document.getElementById(id);
+const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+const normId = (s) => String(s || "").toUpperCase().replace(/\s+/g, "");
+
+// Lee una columna del Sheets tolerando tildes, mayúsculas y símbolos (ÁREA = AREA = Área (m2)...)
+function campo(fila, ...nombres) {
+  if (!fila) return "";
+  for (const n of nombres) {
+    const v = fila[norm(n)];
+    if (v !== undefined && String(v).trim() !== "") return String(v).trim();
+  }
+  return "";
+}
+function numero(texto) {
+  if (texto === null || texto === undefined) return NaN;
+  const limpio = String(texto).replace(/[^0-9.,-]/g, "").replace(/,/g, "");
+  return parseFloat(limpio);
+}
+function soles(n) {
+  return CONFIG.moneda + " " + (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function sumarMeses(fechaBase, n) {
+  const diaObjetivo = fechaBase.getDate();
+  const r = new Date(fechaBase.getFullYear(), fechaBase.getMonth() + n, 1);
+  const ultimo = new Date(r.getFullYear(), r.getMonth() + 1, 0).getDate();
+  r.setDate(Math.min(diaObjetivo, ultimo));
+  return r;
+}
+const formatoFecha = (f) => f.toLocaleDateString("es-PE", { day: "2-digit", month: "2-digit", year: "numeric" });
+const hoyISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+
+// Datos del lote ya "traducidos" a campos fijos
+const estadoDe = (fila) => campo(fila, "ESTADO").toUpperCase();
+const tienePrecio = (fila) => CONFIG.estadosConPrecio.includes(estadoDe(fila));
+const precioDe = (fila) => numero(campo(fila, "PRECIO DE VENTA", "PRECIO DE LISTA", "PRECIO", "PRECIO TOTAL", "PRECIO LOTE"));
+const mzDe = (fila) => campo(fila, "MZ", "MANZANA");
+const loteNDe = (fila) => campo(fila, "LOTE N°", "N° LOTE", "LOTE", "NRO LOTE", "N LOTE");
+
+// Datos calculados desde el plano (respaldo si el Sheets no trae el área)
+let datosPlano = {};     // id_lote → { area_calc, construida_calc, bbox }
+function areaDe(id, fila) {
+  const v = campo(fila, "ÁREA", "AREA", "AREA TOTAL", "AREA DEL LOTE", "AREA M2");
+  if (v) return v + " m²";
+  return datosPlano[id] ? "≈ " + datosPlano[id].area_calc.toFixed(2) + " m²" : "-";
+}
+function construidaDe(id, fila) {
+  const v = campo(fila, "ÁREA CONSTRUIDA", "AREA CONSTRUIDA", "CONSTRUIDA", "AREA TECHADA");
+  if (v) return v + " m²";
+  const c = datosPlano[id] && datosPlano[id].construida_calc;
+  return c ? "≈ " + c.toFixed(2) + " m²" : "Sin construcción";
+}
+const conM = (v) => v ? v + " m" : "-";
+
+// ==============================================================
+// TEXTOS Y ENLACES DESDE CONFIG
+// ==============================================================
+(function aplicarConfig() {
+  const logo = $("logo-proyecto");
+  const img = new Image();
+  img.alt = "Techo Propio";
+  img.onload = () => { logo.innerHTML = ""; logo.appendChild(img); };
+  img.onerror = () => { logo.innerHTML = '<div class="logo-texto">' + CONFIG.nombreProyecto + "</div>"; };
+  img.src = CONFIG.logoSuperior;
+  const imgInf = $("logo-proyecto-img");
+  imgInf.onerror = () => imgInf.parentNode.style.display = "none";
+  imgInf.src = CONFIG.logoInferior;
+
+  if (CONFIG.linkAdministrador) $("link-admin").href = CONFIG.linkAdministrador;
+  else {
+    $("link-admin").href = "#";
+    $("link-admin").addEventListener("click", (e) => { e.preventDefault(); alert("Falta configurar el link de edición del Google Sheets (CONFIG.linkAdministrador)."); });
+  }
+  if (CONFIG.linkDocumentos) $("link-documentos").href = CONFIG.linkDocumentos;
+  else $("link-documentos").outerHTML = '<p style="color:#888;">La carpeta de documentos se publicará pronto.</p>';
+  $("empresa-telefono").innerHTML = CONFIG.telefonoEmpresa
+    ? '📞 <a href="tel:' + CONFIG.telefonoEmpresa.replace(/\s/g, "") + '">' + CONFIG.telefonoEmpresa + "</a>" : "";
+  $("empresa-direccion").style.display = "none";
+  if (CONFIG.linkOficina) $("link-oficina").href = CONFIG.linkOficina; else $("link-oficina").style.display = "none";
+})();
+
+// ==============================================================
+// MAPA BASE
+// ==============================================================
+const map = new maplibregl.Map({
+  container: "map",
+  style: {
+    version: 8,
+    glyphs: "https://cdn.jsdelivr.net/gh/kylebarron/openmaptiles-fonts/fonts/{fontstack}/{range}.pbf",
+    sources: {
+      "esri-satelital": {
+        type: "raster",
+        tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+        tileSize: 256, maxzoom: 17, attribution: "Esri, Maxar, Earthstar Geographics"
+      }
+    },
+    layers: [{ id: "esri-satelital-layer", type: "raster", source: "esri-satelital" }]
+  },
+  center: [-79.74074, -5.97133],
+  zoom: 17.8,
+  maxZoom: 22,
+  maxPitch: 70,
+  preserveDrawingBuffer: true
+});
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+
+// Botón 2D / 3D — va justo debajo de los controles de zoom (arriba a la derecha),
+// con el mismo estilo, para no tapar el plano ni los filtros.
+class ControlVista {
+  onAdd(m) {
+    this.map = m;
+    const c = document.createElement("div");
+    c.className = "maplibregl-ctrl maplibregl-ctrl-group ctrl-vista";
+    c.innerHTML = '<button type="button" data-v="2d" title="Vista 2D (desde arriba)" aria-label="Vista 2D">2D</button>' +
+                  '<button type="button" data-v="3d" title="Vista 3D (inclinada)" aria-label="Vista 3D">3D</button>';
+    c.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+      const es3d = b.dataset.v === "3d";
+      m.easeTo({ pitch: es3d ? CONFIG.pitch3D : 0, bearing: CONFIG.bearingPlano, duration: 900 });
+    }));
+    this.actualizar = () => {
+      const es3d = m.getPitch() > 5;
+      c.querySelectorAll("button").forEach((b) => {
+        const activo = (b.dataset.v === "3d") === es3d;
+        b.classList.toggle("activo", activo);
+        b.setAttribute("aria-pressed", activo);
+      });
+    };
+    m.on("pitchend", this.actualizar);
+    m.on("load", this.actualizar);
+    this.contenedor = c;
+    return c;
+  }
+  onRemove() { this.contenedor.remove(); this.map.off("pitchend", this.actualizar); }
+}
+map.addControl(new ControlVista(), "top-right");
+
+// Botón 🏠 — activa / desactiva las casas en volumen (área construida en 3D).
+// Al activarlo estando en 2D, el mapa pasa solo a la vista 3D para que se aprecien.
+class ControlCasas {
+  onAdd(m) {
+    const c = document.createElement("div");
+    c.className = "maplibregl-ctrl maplibregl-ctrl-group ctrl-vista";
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn-casas";
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.8V20h13V9.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><rect x="10" y="14" width="4" height="6" fill="currentColor"/></svg>';
+    let activo = CONFIG.casas3D;
+    const pintar = () => {
+      b.classList.toggle("activo", activo);
+      b.setAttribute("aria-pressed", activo);
+      b.title = activo ? "Ocultar casas en 3D" : "Ver casas en 3D";
+      b.setAttribute("aria-label", b.title);
+    };
+    b.addEventListener("click", () => {
+      if (!m.getLayer("construcciones-3d")) return;
+      activo = !activo;
+      m.setLayoutProperty("construcciones-3d", "visibility", activo ? "visible" : "none");
+      m.setLayoutProperty("construcciones", "visibility", activo ? "none" : "visible");
+      if (activo && m.getPitch() < 5) m.easeTo({ pitch: CONFIG.pitch3D, bearing: CONFIG.bearingPlano, duration: 900 });
+      pintar();
+    });
+    pintar();
+    c.appendChild(b);
+    this.c = c;
+    return c;
+  }
+  onRemove() { this.c.remove(); }
+}
+map.addControl(new ControlCasas(), "top-right");
+
+// ==============================================================
+// NAVEGACIÓN / MÓVIL / FILTROS COLAPSABLES
+// ==============================================================
+const sidebarIzq = $("sidebar-izq"), fondoOscuro = $("fondo-oscuro-movil");
+const cerrarSidebarMovil = () => { sidebarIzq.classList.remove("abierta"); fondoOscuro.classList.remove("visible"); };
+$("btn-hamburguesa").addEventListener("click", () => { sidebarIzq.classList.add("abierta"); fondoOscuro.classList.add("visible"); });
+fondoOscuro.addEventListener("click", cerrarSidebarMovil);
+
+const barraFiltros = $("barra-filtros");
+if (window.innerWidth <= 760) barraFiltros.classList.add("colapsada");
+$("pestana-filtros").addEventListener("click", () => barraFiltros.classList.toggle("colapsada"));
+
+document.querySelectorAll("#sidebar-izq .item[data-seccion]").forEach((item) => {
+  item.addEventListener("click", () => {
+    document.querySelectorAll("#sidebar-izq .item").forEach((i) => i.classList.remove("activo"));
+    item.classList.add("activo");
+    cerrarSidebarMovil();
+    const seccion = item.dataset.seccion;
+    const vista = $("vista-secciones");
+    const vistaModelo = $("vista-modelo");
+    vistaModelo.style.display = seccion === "modelo" ? "block" : "none";
+    if (seccion === "modelo") {
+      vista.style.display = "none";
+      panelDerecho.classList.remove("abierto");
+      const iframe = $("iframe-modelo");
+      if (!iframe.src) {   // se carga solo la primera vez que se abre (no pesa al inicio)
+        iframe.addEventListener("load", () => $("modelo-cargando").style.display = "none", { once: true });
+        iframe.src = CONFIG.linkModeloVivienda;
+      }
+      return;
+    }
+    if (seccion === "plano") { vista.style.display = "none"; return; }
+    vista.style.display = "block";
+    document.querySelectorAll(".vista-seccion").forEach((s) => s.classList.remove("activa"));
+    $("seccion-" + seccion).classList.add("activa");
+  });
+});
+
+$("form-contacto").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (!CONFIG.whatsappContacto) { alert("El número de WhatsApp de contacto aún no está configurado."); return; }
+  const v = (id) => $(id).value.trim();
+  const texto = "Hola, soy " + v("contacto-nombre") + (v("contacto-lote") ? ", me interesa el Lote " + v("contacto-lote") + " de " + CONFIG.nombreProyecto : "") + ".\n" +
+    "Teléfono: " + v("contacto-telefono") + (v("contacto-correo") ? "\nCorreo: " + v("contacto-correo") : "") +
+    (v("contacto-mensaje") ? "\n\nMensaje: " + v("contacto-mensaje") : "");
+  window.open("https://wa.me/" + CONFIG.whatsappContacto + "?text=" + encodeURIComponent(texto), "_blank");
+});
+
+// ==============================================================
+// COTIZADOR — un solo componente, usado en el panel y en Financiamiento
+//  · Contado: con descuento (% o monto) → precio de cierre
+//  · Financiado: sin descuento; inicial, N cuotas (máx. 24) de monto fijo,
+//    y una cuota final que completa el saldo
+// ==============================================================
+function crearCotizador(contenedor) {
+  contenedor.innerHTML = `
+    <div class="cot-bloqueado" data-c="bloqueado" style="display:none"></div>
+    <div data-c="cuerpo">
+      <div class="toggle-pago">
+        <button data-modo="contado" class="activo">Contado</button>
+        <button data-modo="financiado">Financiado</button>
+      </div>
+      <div class="cot-res"><span>Precio de lista</span><strong data-c="precio-lista">-</strong></div>
+
+      <div data-c="bloque-contado">
+        <div class="cot-campo">
+          <label data-c="lbl-desc">Descuento</label>
+          <div class="cot-fila-input">
+            <input type="number" data-c="desc" value="0" min="0" step="0.5">
+            <div class="toggle-mini" data-c="toggle-desc">
+              <button data-td="porcentaje">%</button><button data-td="monto">${CONFIG.moneda}</button>
+            </div>
+          </div>
+        </div>
+        <div class="cot-res"><span>Descuento aplicado</span><span data-c="desc-aplicado">-</span></div>
+      </div>
+
+      <div data-c="bloque-fin" style="display:none">
+        <p class="cot-nota">En financiado no se aplica descuento.</p>
+        <div class="cot-campo"><label>Inicial (${CONFIG.moneda})</label><input type="number" data-c="inicial" min="0" step="100"></div>
+        <div class="cot-campo"><label>N° de cuotas (máx. ${CONFIG.cuotasMaximo})</label><input type="number" data-c="cuotas" min="1" max="${CONFIG.cuotasMaximo}"></div>
+        <div class="cot-campo"><label>Cuota mensual (${CONFIG.moneda})</label><input type="number" data-c="cuota" min="0" step="50"></div>
+        <div class="cot-campo"><label>Fecha de pago de la inicial</label><input type="date" data-c="fecha"></div>
+      </div>
+
+      <div class="cot-res cot-destacado"><span>Precio de cierre</span><span data-c="cierre">-</span></div>
+
+      <div data-c="res-fin" style="display:none">
+        <div class="cot-res"><span>Monto a financiar</span><strong data-c="monto-fin">-</strong></div>
+        <div class="cot-res"><span data-c="lbl-cuotas">Cuotas mensuales</span><strong data-c="out-cuota">-</strong></div>
+        <div class="cot-res"><span>Cuota final</span><strong data-c="out-final">-</strong></div>
+      </div>
+      <div class="cot-aviso" data-c="aviso"></div>
+
+      <div class="cot-crono" data-c="crono-wrap" style="display:none">
+        <div class="tit">Cronograma de pagos</div>
+        <div class="caja"><table>
+          <thead><tr><th>Cuota</th><th>Fecha</th><th>Monto</th><th>Saldo</th></tr></thead>
+          <tbody data-c="crono"></tbody>
+        </table></div>
+      </div>
+
+      <button class="btn-pdf" data-c="pdf">⬇ Descargar cotización (PDF)</button>
+      <div class="estado-pdf" data-c="estado-pdf"></div>
+    </div>`;
+
+  const el = (k) => contenedor.querySelector('[data-c="' + k + '"]');
+  const st = { id: null, fila: null, modo: "contado", tipoDesc: CONFIG.tipoDescuentoPorDefecto, r: null };
+  if (!CONFIG.permitirElegirTipoDescuento) el("toggle-desc").style.display = "none";
+
+  function pintarToggles() {
+    contenedor.querySelectorAll("[data-modo]").forEach((b) => b.classList.toggle("activo", b.dataset.modo === st.modo));
+    contenedor.querySelectorAll("[data-td]").forEach((b) => b.classList.toggle("activo", b.dataset.td === st.tipoDesc));
+    el("lbl-desc").textContent = st.tipoDesc === "monto" ? "Descuento (" + CONFIG.moneda + ")" : "Descuento (%)";
+    el("bloque-contado").style.display = st.modo === "contado" ? "block" : "none";
+    el("bloque-fin").style.display = st.modo === "financiado" ? "block" : "none";
+    el("res-fin").style.display = st.modo === "financiado" ? "block" : "none";
+  }
+
+  function calcular() {
+    if (!st.fila || !tienePrecio(st.fila)) return;
+    const precio = precioDe(st.fila) || 0;
+    const avisos = [];
+    const r = { modo: st.modo, precioLista: precio, descuento: 0, descTexto: "-", cierre: precio, filas: [] };
+    el("precio-lista").textContent = soles(precio);
+
+    if (st.modo === "contado") {
+      const val = Math.max(parseFloat(el("desc").value) || 0, 0);
+      let d = st.tipoDesc === "monto" ? val : precio * val / 100;
+      if (d > precio) { d = precio; avisos.push("El descuento no puede superar el precio del lote."); }
+      r.descuento = d;
+      r.descTexto = st.tipoDesc === "monto" ? soles(val) : val + " %  (" + soles(d) + ")";
+      r.cierre = precio - d;
+      el("desc-aplicado").textContent = soles(d);
+    } else {
+      let n = parseInt(el("cuotas").value) || 1;
+      if (n > CONFIG.cuotasMaximo) { avisos.push("Máximo " + CONFIG.cuotasMaximo + " cuotas. Se calcula con " + CONFIG.cuotasMaximo + "."); n = CONFIG.cuotasMaximo; }
+      if (n < 1) n = 1;
+      let inicial = Math.max(parseFloat(el("inicial").value) || 0, 0);
+      if (inicial > precio) { avisos.push("La inicial supera el precio del lote."); inicial = precio; }
+      const cuota = Math.max(parseFloat(el("cuota").value) || 0, 0);
+      const montoFin = precio - inicial;
+
+      const fechaStr = el("fecha").value || hoyISO();
+      const [a, m, dd] = fechaStr.split("-").map(Number);
+      const f0 = new Date(a, m - 1, dd);
+
+      r.filas.push({ etiqueta: "Inicial", fecha: f0, monto: inicial, saldo: montoFin });
+      let saldo = montoFin;
+      const regulares = CONFIG.cuotaFinalAparte ? n : n - 1;
+      let k = 1;
+      for (; k <= regulares && saldo > 0.005; k++) {
+        const pago = Math.min(cuota, saldo);
+        saldo -= pago;
+        r.filas.push({ etiqueta: String(k), fecha: sumarMeses(f0, k), monto: pago, saldo });
+      }
+      const cuotaFinal = saldo > 0.005 ? saldo : 0;
+      if (cuotaFinal > 0) {
+        r.filas.push({ etiqueta: CONFIG.cuotaFinalAparte ? "Final" : String(k), fecha: sumarMeses(f0, k), monto: cuotaFinal, saldo: 0, final: true });
+      } else if (k - 1 < regulares) {
+        avisos.push("Con esa cuota mensual la deuda se cancela en " + (k - 1) + " cuotas.");
+      }
+      if (cuota === 0) avisos.push("Ingresa el monto de la cuota mensual.");
+
+      Object.assign(r, { inicial, n, cuota, montoFin, cuotaFinal, cierre: precio });
+      el("monto-fin").textContent = soles(montoFin);
+      el("lbl-cuotas").textContent = "Cuota mensual (× " + regulares + ")";
+      el("out-cuota").textContent = soles(cuota);
+      el("out-final").textContent = cuotaFinal > 0 ? soles(cuotaFinal) : "-";
+
+      const tbody = el("crono");
+      tbody.innerHTML = "";
+      r.filas.forEach((f) => {
+        const tr = document.createElement("tr");
+        if (f.final) tr.className = "final";
+        tr.innerHTML = `<td>${f.etiqueta}</td><td>${formatoFecha(f.fecha)}</td><td>${soles(f.monto)}</td><td>${soles(f.saldo)}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    el("crono-wrap").style.display = st.modo === "financiado" ? "block" : "none";
+    el("cierre").textContent = soles(r.cierre);
+    el("aviso").innerHTML = avisos.join("<br>");
+    st.r = r;
+  }
+
+  contenedor.querySelectorAll("[data-modo]").forEach((b) => b.addEventListener("click", () => { st.modo = b.dataset.modo; pintarToggles(); calcular(); }));
+  contenedor.querySelectorAll("[data-td]").forEach((b) => b.addEventListener("click", () => { st.tipoDesc = b.dataset.td; pintarToggles(); calcular(); }));
+  ["desc", "inicial", "cuotas", "cuota", "fecha"].forEach((k) => el(k).addEventListener("input", calcular));
+  el("pdf").addEventListener("click", () => { if (st.r) descargarCotizacionPDF(st.id, st.fila, st.r, el("estado-pdf")); });
+
+  return {
+    cargar(id, fila) {
+      st.id = id; st.fila = fila; st.r = null;
+      const bloq = el("bloqueado"), cuerpo = el("cuerpo");
+      if (!fila) {
+        bloq.textContent = "Este lote aún no tiene datos en la hoja de cálculo."; bloq.style.display = "block"; cuerpo.style.display = "none"; return;
+      }
+      if (!tienePrecio(fila)) {
+        const est = estadoDe(fila) || "NO DISPONIBLE";
+        bloq.textContent = "Este lote está " + est.toLowerCase() + ". El precio y la cotización solo se muestran para lotes libres."; 
+        bloq.style.display = "block"; cuerpo.style.display = "none"; return;
+      }
+      bloq.style.display = "none"; cuerpo.style.display = "block";
+      st.modo = "contado";
+      st.tipoDesc = CONFIG.tipoDescuentoPorDefecto;
+      el("desc").value = 0;
+      el("inicial").value = CONFIG.inicialDefecto;
+      el("cuotas").value = CONFIG.cuotasDefecto;
+      el("cuota").value = CONFIG.cuotaMensualDefecto;
+      el("fecha").value = hoyISO();
+      el("estado-pdf").textContent = "";
+      pintarToggles();
+      calcular();
+    }
+  };
+}
+
+const cotPanel = crearCotizador($("cot-panel"));
+const cotFin = crearCotizador($("cot-fin"));
+
+// ==============================================================
+// PDF DE COTIZACIÓN (captura del plano con el lote resaltado)
+// ==============================================================
+function descargarCotizacionPDF(idLote, fila, r, estadoEl) {
+  estadoEl.textContent = "Generando PDF…";
+  const info = datosPlano[idLote];
+  const filtroLote = ["all", ["==", ["get", "categoria"], "LOTE"], ["==", ["get", "id_lote"], idLote]];
+
+  // 1) Guardar cómo estaba la vista (cámara y capas) para restaurarla al terminar
+  const camaraPrevia = { center: map.getCenter(), zoom: map.getZoom(), pitch: map.getPitch(), bearing: map.getBearing() };
+  const visPrevia = {};
+  ["construcciones", "construcciones-3d", "tour360-puntos", "lote-seleccionado"].forEach((id) => {
+    if (map.getLayer(id)) visPrevia[id] = map.getLayoutProperty(id, "visibility") || "visible";
+  });
+
+  // 2) Foto limpia: casas planas, sin ojos 360° ni el resaltado normal
+  const vis = (id, v) => { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", v); };
+  vis("construcciones", "visible");
+  vis("construcciones-3d", "none");
+  vis("tour360-puntos", "none");
+  vis("lote-seleccionado", "none");
+
+  // 3) Resaltado de alto contraste: relleno amarillo + borde negro grueso + borde amarillo encima
+  ["resaltado-pdf-relleno", "resaltado-pdf-sombra", "resaltado-pdf"].forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
+  map.addLayer({ id: "resaltado-pdf-relleno", type: "fill", source: "plano", filter: filtroLote, paint: { "fill-color": "#ffea00", "fill-opacity": 0.45 } });
+  map.addLayer({ id: "resaltado-pdf-sombra", type: "line", source: "plano", filter: filtroLote, paint: { "line-color": "#000000", "line-width": 9 } });
+  map.addLayer({ id: "resaltado-pdf", type: "line", source: "plano", filter: filtroLote, paint: { "line-color": "#ffea00", "line-width": 4.5 } });
+
+  // 4) SIEMPRE en 2D (desde arriba) y con el plano derecho, bien cerca del lote
+  if (info) map.fitBounds(info.bbox, { padding: 140, maxZoom: 20.5, duration: 0, pitch: 0, bearing: CONFIG.bearingPlano });
+
+  const restaurar = () => {
+    ["resaltado-pdf-relleno", "resaltado-pdf-sombra", "resaltado-pdf"].forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
+    Object.entries(visPrevia).forEach(([id, v]) => vis(id, v));
+    map.jumpTo(camaraPrevia);
+  };
+
+  let hecho = false;
+  const capturar = () => {
+    if (hecho) return; hecho = true;
+    try {
+      const img = info ? componerFotoLote(idLote, fila, info) : null;
+      restaurar();
+      armarPDF(img, idLote, fila, r);
+      estadoEl.textContent = "";
+    } catch (err) {
+      restaurar();
+      console.error("Error generando el PDF:", err);
+      estadoEl.textContent = "No se pudo generar el PDF. Revisa la consola (F12).";
+    }
+  };
+  map.once("idle", capturar);
+  setTimeout(capturar, 2000);
+}
+
+// Toma la imagen del mapa, la recorta en formato 4:3 centrada en el lote
+// y escribe dentro del lote la manzana y el número (los rótulos del mapa son
+// HTML y no salen en la captura, por eso se dibujan aquí).
+function componerFotoLote(idLote, fila, info) {
+  const lienzo = map.getCanvas();
+  const r = lienzo.width / lienzo.clientWidth;        // densidad de píxeles de la pantalla
+  const centro = info.punto || [(info.bbox[0][0] + info.bbox[1][0]) / 2, (info.bbox[0][1] + info.bbox[1][1]) / 2];
+  const pc = map.project(centro);
+  const cx = pc.x * r, cy = pc.y * r;
+
+  // Recorte 4:3 (igual al recuadro del PDF, para que no se deforme)
+  let w = Math.min(lienzo.width, lienzo.height * 4 / 3), h = w * 3 / 4;
+  const x0 = Math.max(0, Math.min(lienzo.width - w, cx - w / 2));
+  const y0 = Math.max(0, Math.min(lienzo.height - h, cy - h / 2));
+  const out = document.createElement("canvas");
+  out.width = Math.round(w); out.height = Math.round(h);
+  const g = out.getContext("2d");
+  g.drawImage(lienzo, x0, y0, w, h, 0, 0, out.width, out.height);
+
+  // Rótulo "MZ A / LT 5" dentro del lote
+  const partes = idLote.split("-").map((t) => t.trim());
+  const mz = (fila && mzDe(fila)) || partes[0];
+  const lt = (fila && loteNDe(fila)) || partes[1] || "";
+  const tx = cx - x0, ty = cy - y0;
+  const fs = Math.max(13, Math.round(out.width / 42));
+  g.textAlign = "center"; g.textBaseline = "middle";
+  g.font = "800 " + fs + "px Arial, sans-serif";
+  g.lineJoin = "round"; g.lineWidth = Math.max(3, fs / 4);
+  [["MZ " + mz, ty - fs * 0.6], ["LT " + lt, ty + fs * 0.6]].forEach(([t, y]) => {
+    g.strokeStyle = "#ffffff"; g.strokeText(t, tx, y);
+    g.fillStyle = "#000000"; g.fillText(t, tx, y);
+  });
+  return out.toDataURL("image/png");
+}
+
+function armarPDF(imagenMapa, idLote, fila, r) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const azul = [11, 90, 28];
+
+  doc.setFontSize(16); doc.setTextColor(...azul); doc.text(CONFIG.nombreProyecto, 15, 18);
+  doc.setFontSize(10); doc.setTextColor(100);
+  doc.text(CONFIG.empresa + " — Cotización de lote — " + new Date().toLocaleDateString("es-PE"), 15, 24);
+  doc.setDrawColor(200); doc.line(15, 28, 195, 28);
+
+  doc.setFontSize(13); doc.setTextColor(20); doc.text("Lote " + idLote, 15, 38);
+  doc.setFontSize(10); doc.setTextColor(60);
+  const datos = [
+    ["Manzana", mzDe(fila) || "-"], ["Área del lote", areaDe(idLote, fila)], ["Área construida", construidaDe(idLote, fila)],
+    ["Estado", estadoDe(fila) || "-"], ["Frente", conM(campo(fila, "FRONTIS", "FRENTE"))], ["Fondo", conM(campo(fila, "POSTERIOR", "FONDO"))],
+    ["Izquierda", conM(campo(fila, "IZQUIERDO", "IZQUIERDA"))], ["Derecha", conM(campo(fila, "DERECHO", "DERECHA"))]
+  ];
+  let y = 46;
+  datos.forEach(([l, v]) => { doc.text(l + ":", 15, y); doc.text(String(v), 55, y); y += 6; });
+
+  if (imagenMapa) {
+    doc.addImage(imagenMapa, "PNG", 110, 36, 85, 63.75);   // 4:3, igual que el recorte
+    doc.setFontSize(8); doc.setTextColor(140); doc.text("Ubicación del lote dentro del proyecto", 110, 104);
+  }
+
+  y = Math.max(y, 108) + 4;
+  doc.setDrawColor(220); doc.line(15, y, 195, y); y += 8;
+  doc.setFontSize(12); doc.setTextColor(...azul); doc.text("Cotización — " + (r.modo === "contado" ? "Al contado" : "Financiado"), 15, y); y += 8;
+
+  doc.setFontSize(10); doc.setTextColor(60);
+  const linea = (l, v, destacado) => {
+    if (destacado) { doc.setFontSize(11); doc.setTextColor(20); }
+    doc.text(l, 15, y); doc.text(v, 75, y); y += destacado ? 8 : 6;
+    doc.setFontSize(10); doc.setTextColor(60);
+  };
+  linea("Precio de lista:", soles(r.precioLista));
+  if (r.modo === "contado") {
+    linea("Descuento:", r.descTexto);
+    linea("Precio de cierre:", soles(r.cierre), true);
+  } else {
+    linea("Precio de cierre:", soles(r.cierre), true);
+    linea("Inicial:", soles(r.inicial));
+    linea("Monto a financiar:", soles(r.montoFin));
+    linea("Cuota mensual:", soles(r.cuota) + "  × " + (r.filas.filter((f) => !f.final).length - 1));
+    if (r.cuotaFinal > 0) linea("Cuota final:", soles(r.cuotaFinal));
+    y += 4;
+    doc.setFontSize(10); doc.setTextColor(...azul); doc.text("Cronograma de pagos", 15, y); y += 6;
+    doc.setFontSize(8); doc.setTextColor(60);
+    const cab = () => { doc.text("Cuota", 15, y); doc.text("Fecha", 40, y); doc.text("Monto", 105, y, { align: "right" }); doc.text("Saldo", 150, y, { align: "right" }); y += 4.5; };
+    cab();
+    r.filas.forEach((f) => {
+      if (y > 278) { doc.addPage(); y = 20; cab(); }
+      doc.text(f.etiqueta, 15, y); doc.text(formatoFecha(f.fecha), 40, y);
+      doc.text(soles(f.monto), 105, y, { align: "right" }); doc.text(soles(f.saldo), 150, y, { align: "right" });
+      y += 4.5;
+    });
+  }
+  doc.setFontSize(8); doc.setTextColor(150);
+  doc.text("Cotización referencial, sujeta a confirmación. Generada desde el visor " + CONFIG.nombreProyecto + ".", 15, 288);
+  doc.save("Cotizacion_" + idLote.replace(/\s/g, "") + ".pdf");
+}
+
+// ==============================================================
+// PANEL DERECHO
+// ==============================================================
+const panelDerecho = $("panel-derecho");
+const filtroSeleccion = (id) => ["all", ["==", ["get", "categoria"], "LOTE"], ["==", ["get", "id_lote"], id]];
+$("cerrar-panel").addEventListener("click", () => {
+  panelDerecho.classList.remove("abierto");
+  if (map.getLayer("lote-seleccionado")) map.setFilter("lote-seleccionado", filtroSeleccion("__ninguno__"));
+});
+
+function abrirPanelLote(idLote, fila) {
+  if (map.getLayer("lote-seleccionado")) map.setFilter("lote-seleccionado", filtroSeleccion(idLote));
+  $("panel-titulo").textContent = "Lote " + idLote;
+  const est = fila ? estadoDe(fila) : "";
+  const badge = $("panel-estado-badge");
+  badge.textContent = est || "Sin datos";
+  badge.style.background = CONFIG.coloresEstado[est] || "#999";
+
+  $("dato-mz").textContent = (fila && mzDe(fila)) || idLote.split("-")[0].trim();
+  $("dato-area").textContent = areaDe(idLote, fila);
+  $("dato-construida").textContent = construidaDe(idLote, fila);
+  const conPrecio = fila && tienePrecio(fila);
+  $("fila-precio").style.display = conPrecio ? "flex" : "none";
+  $("dato-precio").textContent = conPrecio ? soles(precioDe(fila)) : "";
+
+  const lind = { frontis: campo(fila, "FRONTIS", "FRENTE"), posterior: campo(fila, "POSTERIOR", "FONDO"), izquierdo: campo(fila, "IZQUIERDO", "IZQUIERDA"), derecho: campo(fila, "DERECHO", "DERECHA") };
+  $("bloque-linderos").style.display = Object.values(lind).some(Boolean) ? "block" : "none";
+  Object.entries(lind).forEach(([k, v]) => $("dato-" + k).textContent = conM(v));
+
+  cotPanel.cargar(idLote, fila);
+  panelDerecho.classList.add("abierto");
+}
+
+// ==============================================================
+// CARGA DEL PLANO + CAPAS
+// ==============================================================
+let datosSheet = {};   // id_lote (del plano) → fila normalizada del Sheets
+let idsPlanoPorNorm = {};
+
+map.on("load", async () => {
+  // "?v=" evita que el navegador / GitHub Pages sirva una copia vieja del GeoJSON
+  const geo = await fetch(CONFIG.archivoPlano + "?v=" + Date.now(), { cache: "no-store" }).then((r) => r.json());
+
+  // Índices del plano: área calculada, área construida y encuadre de cada lote
+  geo.features.forEach((f) => {
+    const p = f.properties;
+    if (p.categoria === "LOTE") {
+      const xs = f.geometry.coordinates[0].map((c) => c[0]), ys = f.geometry.coordinates[0].map((c) => c[1]);
+      datosPlano[p.id_lote] = Object.assign(datosPlano[p.id_lote] || {}, {
+        area_calc: p.area_calc, bbox: [[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]]
+      });
+      idsPlanoPorNorm[normId(p.id_lote)] = p.id_lote;
+    }
+    if (p.categoria === "LOTE_NUM_PUNTO") {
+      datosPlano[p.id_lote] = Object.assign(datosPlano[p.id_lote] || {}, { punto: f.geometry.coordinates });
+    }
+    if (p.categoria === "CONSTRUCCION" && p.id_lote) {
+      datosPlano[p.id_lote] = Object.assign(datosPlano[p.id_lote] || {}, { construida_calc: p.area_calc });
+    }
+  });
+
+  // Encuadre inicial al contorno del proyecto
+  const limite = geo.features.filter((f) => f.properties.categoria === "LIMITE_PROYECTO").flatMap((f) => f.geometry.coordinates);
+  if (limite.length) {
+    const xs = limite.map((c) => c[0]), ys = limite.map((c) => c[1]);
+    map.jumpTo({ center: [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2], zoom: CONFIG.zoomInicial, pitch: CONFIG.vistaInicial === "2d" ? 0 : CONFIG.pitch3D, bearing: CONFIG.bearingPlano });
+  }
+
+  // Imagen del plano (debajo de todo)
+
+  map.addSource("plano", { type: "geojson", data: geo, generateId: true, tolerance: 0, maxzoom: 22 });
+  const cat = (c) => ["==", ["get", "categoria"], c];
+
+  cargarImagenPlano();   // se inserta debajo de todas las capas del proyecto
+  map.addLayer({ id: "areas-verdes", type: "fill", source: "plano", filter: cat("AREA_VERDE"), paint: { "fill-color": ["get", "fill"], "fill-opacity": 0.6 } });
+  // Pisos del parque (senderos, plaza, zona de juegos, biosaludable) — planos, sobre el césped
+  map.addLayer({ id: "parque-piso", type: "fill", source: "plano", filter: cat("PARQUE_PISO"),
+    layout: { visibility: CONFIG.parque3D ? "visible" : "none" }, paint: { "fill-color": ["get", "color"], "fill-opacity": 1 } });
+  map.addLayer({ id: "lotes", type: "fill", source: "plano", filter: cat("LOTE"), paint: { "fill-color": CONFIG.colorSinDatos, "fill-opacity": 0.85 } });
+  // Casas: dos capas (plana y en volumen); el botón 🏠 muestra una u otra
+  map.addLayer({
+    id: "construcciones", type: "fill", source: "plano", filter: cat("CONSTRUCCION"),
+    layout: { visibility: CONFIG.casas3D ? "none" : "visible" },
+    paint: { "fill-color": CONFIG.colorConstruccion, "fill-opacity": 0.72 }
+  });
+  map.addLayer({
+    id: "construcciones-3d", type: "fill-extrusion", source: "plano", filter: cat("CONSTRUCCION"),
+    layout: { visibility: CONFIG.casas3D ? "visible" : "none" },
+    paint: { "fill-extrusion-color": CONFIG.colorConstruccion, "fill-extrusion-height": CONFIG.alturaCasas, "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.85 }
+  });
+  // Elementos del parque en volumen (cada pieza trae su color, base y altura en metros)
+  map.addLayer({
+    id: "parque-3d", type: "fill-extrusion", source: "plano", filter: cat("PARQUE_3D"),
+    layout: { visibility: CONFIG.parque3D ? "visible" : "none" },
+    paint: { "fill-extrusion-color": ["get", "color"], "fill-extrusion-base": ["get", "b"], "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 1 }
+  });
+  map.addLayer({ id: "portico", type: "fill", source: "plano", filter: cat("PORTICO"), paint: { "fill-color": ["get", "fill"], "fill-opacity": ["get", "fill_op"] } });
+  map.addLayer({
+    id: "lotes-borde", type: "line", source: "plano", filter: cat("LOTE"),
+    paint: { "line-color": "#000000", "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 2.6, 0.9] }
+  });
+  map.addLayer({ id: "veredas", type: "line", source: "plano", filter: cat("VEREDA"), paint: { "line-color": "#fdd835", "line-width": 2.2, "line-opacity": 0.9 } });
+  map.addLayer({ id: "limite-proyecto", type: "line", source: "plano", filter: cat("LIMITE_PROYECTO"), paint: { "line-color": "#ffffff", "line-width": 3, "line-dasharray": [2, 2] } });
+  map.addLayer({ id: "lote-seleccionado", type: "line", source: "plano", filter: filtroSeleccion("__ninguno__"), paint: { "line-color": "#ffee58", "line-width": 4 } });
+
+  // Hover
+  let hoverId = null;
+  map.on("mousemove", "lotes", (e) => {
+    map.getCanvas().style.cursor = "pointer";
+    if (!e.features.length) return;
+    if (hoverId !== null) map.setFeatureState({ source: "plano", id: hoverId }, { hover: false });
+    hoverId = e.features[0].id;
+    map.setFeatureState({ source: "plano", id: hoverId }, { hover: true });
+  });
+  map.on("mouseleave", "lotes", () => {
+    map.getCanvas().style.cursor = "";
+    if (hoverId !== null) map.setFeatureState({ source: "plano", id: hoverId }, { hover: false });
+    hoverId = null;
+  });
+  map.on("click", "lotes", (e) => {
+    if (map.getLayer("tour360-puntos") && map.queryRenderedFeatures(e.point, { layers: ["tour360-puntos"] }).length) return;
+    const id = e.features[0].properties.id_lote;
+    abrirPanelLote(id, datosSheet[id]);
+  });
+
+  // Marcadores de manzana (HTML)
+  geo.features.filter((f) => f.properties.categoria === "MANZANA_LABEL").forEach((f) => {
+    const el = document.createElement("div");
+    el.textContent = f.properties.name;
+    Object.assign(el.style, {
+      background: "var(--primario)", color: "#fff", fontWeight: "700", fontSize: "12px", width: "26px", height: "26px",
+      borderRadius: "50%", border: "2px solid var(--dorado)", display: "flex", alignItems: "center", justifyContent: "center",
+      boxShadow: "0 1px 4px rgba(0,0,0,0.5)", willChange: "transform", boxSizing: "border-box", pointerEvents: "none"
+    });
+    new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat(f.geometry.coordinates).addTo(map);
+  });
+
+  // Números de lote (solo el número; la letra ya la da la manzana). Visibles al acercarse.
+  const marcadoresLote = geo.features.filter((f) => f.properties.categoria === "LOTE_NUM_PUNTO").map((f) => {
+    const el = document.createElement("div");
+    const partes = f.properties.id_lote.split("-");
+    el.textContent = partes.length > 1 ? partes[1].trim() : f.properties.id_lote;
+    Object.assign(el.style, { color: "#000", fontWeight: "700", fontSize: "9px", whiteSpace: "nowrap", pointerEvents: "none", textShadow: "0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff" });
+    return new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat(f.geometry.coordinates).addTo(map);
+  });
+  const visLotes = () => { const v = map.getZoom() >= CONFIG.zoomNumerosLote; marcadoresLote.forEach((m) => m.getElement().style.display = v ? "block" : "none"); };
+  visLotes(); map.on("zoomend", visLotes);
+
+  prepararTour360(geo);
+  prepararUbicacion();
+
+  cargarDatosSheet();
+  setInterval(cargarDatosSheet, 2 * 60 * 1000);
+});
+
+// ==============================================================
+// IMAGEN DEL PLANO DE FONDO
+// El archivo original no se modifica: el navegador lo lee y, si es más
+// grande de lo que la tarjeta gráfica del equipo puede dibujar (muchos
+// celulares solo aceptan 4096 px), lo reduce EN MEMORIA antes de mostrarlo.
+// ==============================================================
+function cargarImagenPlano() {
+  const nombres = [CONFIG.imagenPlano, ...(CONFIG.imagenPlanoAlternativas || [])];
+  let limite = 4096;
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    if (gl) limite = Math.min(8192, gl.getParameter(gl.MAX_TEXTURE_SIZE));
+  } catch (e) {}
+
+  const intentar = (i) => {
+    if (i >= nombres.length) {
+      console.error("No se encontró la imagen del plano. Nombres buscados:", nombres,
+        "— revisa que el archivo esté en la misma carpeta que index.html y con el nombre exacto (mayúsculas incluidas).");
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      const esc = Math.min(1, limite / img.naturalWidth, limite / img.naturalHeight);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.naturalWidth * esc);
+      canvas.height = Math.round(img.naturalHeight * esc);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      map.addSource("plano-master", { type: "canvas", canvas, coordinates: CONFIG.esquinasPlano, animate: false });
+      const debajoDe = map.getLayer("areas-verdes") ? "areas-verdes" : undefined;
+      map.addLayer({ id: "plano-master-layer", type: "raster", source: "plano-master", paint: { "raster-opacity": 1, "raster-fade-duration": 0 } }, debajoDe);
+      console.log("Plano de fondo cargado: " + nombres[i] + " (" + img.naturalWidth + "×" + img.naturalHeight + " px" +
+        (esc < 1 ? ", mostrado a " + canvas.width + "×" + canvas.height + " px" : "") + ")");
+    };
+    img.onerror = () => { console.warn("No se encontró: " + nombres[i]); intentar(i + 1); };
+    img.src = encodeURI(nombres[i]) + "?v=" + Date.now();
+  };
+  intentar(0);
+}
+
+// ==============================================================
+// GOOGLE SHEETS
+// ==============================================================
+function cargarDatosSheet() {
+  if (!CONFIG.sheetCsvUrl) { construirLeyenda([]); return; }
+  const url = CONFIG.sheetCsvUrl + (CONFIG.sheetCsvUrl.includes("?") ? "&" : "?") + "_=" + Date.now();
+  Papa.parse(url, {
+    download: true, header: true, skipEmptyLines: true,
+    complete: (res) => {
+      const nuevos = {};
+      const sinCoincidir = [];
+      res.data.forEach((fila) => {
+        const f = {};
+        Object.keys(fila).forEach((k) => { f[norm(k)] = String(fila[k] ?? "").trim(); });
+        // El lote se ubica en el plano por la columna ID o, si no coincide, por MZ + N° de lote
+        const candidatos = [campo(f, "ID", "CODIGO", "COD LOTE"), mzDe(f) && loteNDe(f) ? mzDe(f) + "-" + loteNDe(f) : ""];
+        const id = candidatos.map((c) => idsPlanoPorNorm[normId(c)]).find(Boolean);
+        if (id) nuevos[id] = f; else if (candidatos.some(Boolean)) sinCoincidir.push(candidatos.filter(Boolean)[0]);
+      });
+      datosSheet = nuevos;
+      if (sinCoincidir.length) console.warn("Filas del Sheets sin lote en el plano:", sinCoincidir);
+      const faltantes = Object.keys(idsPlanoPorNorm).length - Object.keys(nuevos).length;
+      if (faltantes > 0) console.warn(faltantes + " lotes del plano no tienen fila en el Sheets.");
+
+      const expr = ["match", ["get", "id_lote"]];
+      Object.keys(datosSheet).forEach((id) => expr.push(id, CONFIG.coloresEstado[estadoDe(datosSheet[id])] || CONFIG.colorSinDatos));
+      expr.push(CONFIG.colorSinDatos);
+      if (expr.length > 3) map.setPaintProperty("lotes", "fill-color", expr);
+
+      construirLeyenda([...new Set(Object.values(datosSheet).map(estadoDe).filter(Boolean))]);
+      poblarFiltros();
+      poblarSelectorFinanciamiento();
+    },
+    error: (err) => { console.error("Error leyendo el Google Sheets:", err); construirLeyenda([]); }
+  });
+}
+
+function construirLeyenda(estados) {
+  const orden = ["LIBRE", "DISPONIBLE", "SEPARADO", "RESERVADO", "VENDIDO", "BLOQUEADO", "AGUA"];
+  const rango = (e) => { const i = orden.indexOf(e); return i < 0 ? 99 : i; };
+  estados.sort((a, b) => rango(a) - rango(b));
+  const items = estados.map((e) => [CONFIG.coloresEstado[e] || CONFIG.colorSinDatos, e.charAt(0) + e.slice(1).toLowerCase()]);
+  items.push([CONFIG.colorConstruccion, "Área construida"], ["#fdd835", "Vereda"]);
+  $("leyenda").innerHTML = items.map(([c, t]) => `<div><span class="dot" style="background:${c}"></span> ${t}</div>`).join("");
+}
+
+// ==============================================================
+// FILTROS
+// ==============================================================
+let rangoPrecio = { min: 0, max: 0 };
+function configurarSlider(idMin, idMax, min, max) {
+  if (!isFinite(min) || !isFinite(max)) { min = 0; max = 0; }
+  min = Math.floor(min); max = Math.ceil(max);
+  const sMin = $(idMin), sMax = $(idMax);
+  const antMin = parseFloat(sMin.value), antMax = parseFloat(sMax.value), antRangoMin = parseFloat(sMin.min), antRangoMax = parseFloat(sMax.max);
+  [sMin, sMax].forEach((s) => { s.min = min; s.max = max; s.step = Math.max(1, Math.round((max - min) / 100)); });
+  // Si el usuario ya había movido el filtro, se respeta tras la recarga automática
+  sMin.value = (!isNaN(antMin) && antMin !== antRangoMin) ? antMin : min;
+  sMax.value = (!isNaN(antMax) && antMax !== antRangoMax) ? antMax : max;
+}
+function llenarSelect(id, valores, textoTodos) {
+  const sel = $(id), previo = sel.value;
+  sel.innerHTML = `<option value="">${textoTodos}</option>`;
+  valores.forEach((v) => { const o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); });
+  if (valores.includes(previo)) sel.value = previo;
+}
+function poblarFiltros() {
+  const filas = Object.entries(datosSheet);
+  const areas = filas.map(([id, f]) => numero(campo(f, "ÁREA", "AREA", "AREA TOTAL", "AREA DEL LOTE")) || (datosPlano[id] || {}).area_calc).filter((n) => !isNaN(n));
+  const precios = filas.filter(([, f]) => tienePrecio(f)).map(([, f]) => precioDe(f)).filter((n) => !isNaN(n) && n > 0);
+  configurarSlider("filtro-area-min", "filtro-area-max", Math.min(...areas), Math.max(...areas));
+  configurarSlider("filtro-precio-min", "filtro-precio-max", Math.min(...precios), Math.max(...precios));
+  rangoPrecio = { min: parseFloat($("filtro-precio-min").min), max: parseFloat($("filtro-precio-max").max) };
+  llenarSelect("filtro-estado", [...new Set(filas.map(([, f]) => estadoDe(f)).filter(Boolean))].sort(), "Todos");
+  llenarSelect("filtro-mz", [...new Set(filas.map(([, f]) => mzDe(f)).filter(Boolean))].sort(), "Todas");
+  actualizarEtiquetasSliders();
+  aplicarFiltros();
+}
+const fmtN = (n) => Math.round(n).toLocaleString("en-US");
+function actualizarEtiquetasSliders() {
+  $("valor-area-min").textContent = fmtN($("filtro-area-min").value) + " m²";
+  $("valor-area-max").textContent = fmtN($("filtro-area-max").value) + " m²";
+  $("valor-precio-min").textContent = CONFIG.moneda + " " + fmtN($("filtro-precio-min").value);
+  $("valor-precio-max").textContent = CONFIG.moneda + " " + fmtN($("filtro-precio-max").value);
+}
+function enlazarParSlider(idMin, idMax) {
+  const sMin = $(idMin), sMax = $(idMax);
+  sMin.addEventListener("input", () => { if (+sMin.value > +sMax.value) sMin.value = sMax.value; actualizarEtiquetasSliders(); aplicarFiltros(); });
+  sMax.addEventListener("input", () => { if (+sMax.value < +sMin.value) sMax.value = sMin.value; actualizarEtiquetasSliders(); aplicarFiltros(); });
+}
+enlazarParSlider("filtro-area-min", "filtro-area-max");
+enlazarParSlider("filtro-precio-min", "filtro-precio-max");
+["filtro-estado", "filtro-mz"].forEach((id) => $(id).addEventListener("input", aplicarFiltros));
+
+function aplicarFiltros() {
+  if (!map.getLayer("lotes")) return;
+  const aMin = +$("filtro-area-min").value, aMax = +$("filtro-area-max").value;
+  const pMin = +$("filtro-precio-min").value, pMax = +$("filtro-precio-max").value;
+  const precioActivo = pMin > rangoPrecio.min || pMax < rangoPrecio.max;
+  const est = $("filtro-estado").value, mz = $("filtro-mz").value;
+  const ids = [];
+  const todos = Object.keys(datosSheet);
+  todos.forEach((id) => {
+    const f = datosSheet[id];
+    const area = numero(campo(f, "ÁREA", "AREA", "AREA TOTAL", "AREA DEL LOTE")) || (datosPlano[id] || {}).area_calc;
+    if (!isNaN(area) && (area < aMin - 0.5 || area > aMax + 0.5)) return;
+    if (precioActivo) {
+      if (!tienePrecio(f)) return;
+      const p = precioDe(f);
+      if (isNaN(p) || p < pMin || p > pMax) return;
+    }
+    if (est && estadoDe(f) !== est) return;
+    if (mz && mzDe(f) !== mz) return;
+    ids.push(id);
+  });
+  const dentro = ["in", ["get", "id_lote"], ["literal", ids]];
+  map.setPaintProperty("lotes", "fill-opacity", ["case", dentro, 0.85, 0.15]);
+  map.setPaintProperty("construcciones", "fill-opacity", ["case", dentro, 0.72, 0.15]);
+  map.setPaintProperty("construcciones-3d", "fill-extrusion-color", ["case", dentro, CONFIG.colorConstruccion, "#cfd8dc"]);
+  $("contador-filtro").textContent = ids.length + " de " + todos.length + " lotes";
+}
+$("btn-limpiar-filtros").addEventListener("click", () => {
+  ["area", "precio"].forEach((k) => { $("filtro-" + k + "-min").value = $("filtro-" + k + "-min").min; $("filtro-" + k + "-max").value = $("filtro-" + k + "-max").max; });
+  $("filtro-estado").value = ""; $("filtro-mz").value = "";
+  actualizarEtiquetasSliders(); aplicarFiltros();
+});
+
+// ==============================================================
+// SECCIÓN FINANCIAMIENTO — buscador Manzana + N° de lote
+// ==============================================================
+let finIdActual = null;
+const numLote = (id, f) => loteNDe(f) || (id.split("-")[1] || "").trim();
+const mzLote = (id, f) => mzDe(f) || id.split("-")[0].trim();
+
+// Lotes LIBRES agrupados por manzana: { "A": [["A - 1", fila], ...], ... }
+function lotesLibresPorManzana() {
+  const g = {};
+  Object.entries(datosSheet).forEach(([id, f]) => {
+    if (!tienePrecio(f)) return;
+    (g[mzLote(id, f)] = g[mzLote(id, f)] || []).push([id, f]);
+  });
+  Object.values(g).forEach((l) => l.sort((a, b) => (parseFloat(numLote(...a)) || 0) - (parseFloat(numLote(...b)) || 0)));
+  return g;
+}
+
+// Se llama cada vez que llegan datos del Sheets (y cada 2 min). Conserva la elección si sigue libre.
+function poblarSelectorFinanciamiento() {
+  const grupos = lotesLibresPorManzana();
+  const selMz = $("fin-sel-mz");
+  const mzPrevia = selMz.value;
+  const manzanas = Object.keys(grupos).sort((a, b) => a.localeCompare(b, "es", { numeric: true }));
+  const total = Object.values(grupos).reduce((n, l) => n + l.length, 0);
+  selMz.innerHTML = manzanas.length
+    ? '<option value="">Elige la manzana</option>' + manzanas.map((mz) => `<option value="${mz}">Manzana ${mz}  (${grupos[mz].length} libre${grupos[mz].length === 1 ? "" : "s"})</option>`).join("")
+    : '<option value="">No hay lotes libres</option>';
+  $("fin-nota").textContent = "Solo se listan los lotes libres (" + total + " disponible" + (total === 1 ? "" : "s") + ").";
+  if (manzanas.includes(mzPrevia)) selMz.value = mzPrevia;
+  llenarLotesFin(true);
+}
+
+function llenarLotesFin(conservar) {
+  const mz = $("fin-sel-mz").value;
+  const selLt = $("fin-sel-lote");
+  const idPrevio = conservar ? finIdActual : null;
+  const lotes = mz ? (lotesLibresPorManzana()[mz] || []) : [];
+  if (!lotes.length) {
+    selLt.innerHTML = '<option value="">Elige la manzana primero</option>';
+    selLt.disabled = true;
+    ocultarLoteFin();
+    return;
+  }
+  selLt.disabled = false;
+  selLt.innerHTML = '<option value="">Elige el lote</option>' +
+    lotes.map(([id, f]) => `<option value="${id}">Lote ${numLote(id, f)}  ·  ${areaDe(id, f)}  ·  ${soles(precioDe(f))}</option>`).join("");
+  if (idPrevio && lotes.some(([id]) => id === idPrevio)) {
+    selLt.value = idPrevio;
+    mostrarLoteFin(idPrevio);            // refresca datos si cambiaron
+  } else {
+    ocultarLoteFin();                    // el lote elegido ya no está libre, o cambió la manzana
+  }
+}
+function ocultarLoteFin() { $("fin-contenido").style.display = "none"; finIdActual = null; }
+
+$("fin-sel-mz").addEventListener("change", () => llenarLotesFin(false));
+$("fin-sel-lote").addEventListener("change", (e) => {
+  if (e.target.value) mostrarLoteFin(e.target.value); else ocultarLoteFin();
+});
+function mostrarLoteFin(id) {
+  const recargar = finIdActual !== id;
+  finIdActual = id;
+  const f = datosSheet[id];
+  $("fin-contenido").style.display = "block";
+  $("fin-titulo-lote").textContent = "Lote " + id;
+  $("fin-dato-area").textContent = areaDe(id, f);
+  $("fin-dato-construida").textContent = construidaDe(id, f);
+  $("fin-dato-estado").textContent = estadoDe(f) || "-";
+  if (recargar) cotFin.cargar(id, f);
+}
+
+// ==============================================================
+// UBICACIÓN
+// ==============================================================
+function prepararUbicacion() {
+  const c = map.getCenter();
+  $("mapa-ubicacion").src = "https://www.google.com/maps?q=" + c.lat.toFixed(6) + "," + c.lng.toFixed(6) + "&z=17&t=k&output=embed";
+}
+
+// ==============================================================
+// RECORRIDOS 360° — solo se activan si el GeoJSON trae puntos TOUR_360
+// ==============================================================
+function prepararTour360(geo) {
+  const puntos = geo.features.filter((f) => f.properties.categoria === "TOUR_360");
+  if (!puntos.length) return;
+  let viewer = null, indice = 0;
+  const cargar = (i) => {
+    const p = puntos[i];
+    $("titulo-360").textContent = p.properties.name || "";
+    $("tour-contador").textContent = (i + 1) + " / " + puntos.length;
+    if (!viewer) viewer = new Marzipano.Viewer($("pano"));
+    const scene = viewer.createScene({
+      source: Marzipano.ImageUrlSource.fromString(p.properties.imagen),
+      geometry: new Marzipano.EquirectGeometry([{ width: 4096 }]),
+      view: new Marzipano.RectilinearView({ yaw: 0, pitch: 0, fov: Math.PI / 2 }, Marzipano.RectilinearView.limit.traditional(4096, 100 * Math.PI / 180)),
+      pinFirstLevel: true
+    });
+    scene.switchTo();
+  };
+  const abrir = (i) => { indice = i; $("modal-360").style.display = "block"; cargar(i); };
+  console.log("Recorridos 360°: " + puntos.length + " puntos encontrados.");
+
+  function activarCapa(imagen, tamano) {
+    if (map.getLayer("tour360-puntos")) return;
+    if (!map.hasImage("icono-ojo-360")) map.addImage("icono-ojo-360", imagen);
+    map.addLayer({
+      id: "tour360-puntos", type: "symbol", source: "plano", filter: ["==", ["get", "categoria"], "TOUR_360"],
+      layout: { "icon-image": "icono-ojo-360", "icon-size": tamano, "icon-allow-overlap": true, "icon-ignore-placement": true }
+    });
+    map.on("click", "tour360-puntos", (e) => { const i = puntos.findIndex((p) => p.properties.imagen === e.features[0].properties.imagen); if (i >= 0) abrir(i); });
+    map.on("mouseenter", "tour360-puntos", () => map.getCanvas().style.cursor = "pointer");
+    map.on("mouseleave", "tour360-puntos", () => map.getCanvas().style.cursor = "");
+    if (CONFIG.animarMarcadores360 && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      let t0 = null;
+      const anim = (ts) => { if (!t0) t0 = ts; if (map.getLayer("tour360-puntos")) map.setPaintProperty("tour360-puntos", "icon-opacity", 0.55 + 0.45 * Math.abs(Math.sin((ts - t0) / 1000 * 1.8))); requestAnimationFrame(anim); };
+      requestAnimationFrame(anim);
+    }
+  }
+
+  // Respaldo: dibuja el "ojo" en el navegador si el PNG no carga
+  function iconoDibujado() {
+    const S = 96, c = document.createElement("canvas"); c.width = c.height = S;
+    const g = c.getContext("2d"), verde = "#0b5a1c";
+    g.fillStyle = "#fff"; g.strokeStyle = verde; g.lineWidth = 7;
+    g.beginPath(); g.arc(S / 2, S / 2, S / 2 - 5, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.fillStyle = verde; g.beginPath();
+    g.moveTo(18, 48); g.quadraticCurveTo(48, 18, 78, 48); g.quadraticCurveTo(48, 78, 18, 48); g.fill();
+    g.fillStyle = "#fff"; g.beginPath(); g.arc(48, 48, 12, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#f2c500"; g.beginPath(); g.arc(48, 48, 8, 0, Math.PI * 2); g.fill();
+    g.fillStyle = verde; g.beginPath(); g.arc(48, 48, 3.5, 0, Math.PI * 2); g.fill();
+    return g.getImageData(0, 0, S, S);
+  }
+
+  const img = new Image();
+  img.onload = () => activarCapa(img, CONFIG.tamanoIcono360);
+  img.onerror = () => { console.warn("No se encontró icono_360_v2.png; se usa el ícono dibujado."); activarCapa(iconoDibujado(), CONFIG.tamanoIcono360 * 256 / 96); };
+  img.src = "icono_360_v2.png?v=2";
+  $("cerrar-360").addEventListener("click", () => $("modal-360").style.display = "none");
+  $("btn-pantalla-completa").addEventListener("click", () => {
+    const m = $("modal-360"); m.classList.toggle("completo");
+    $("btn-pantalla-completa").textContent = m.classList.contains("completo") ? "⤡" : "⛶";
+    if (viewer) viewer.updateSize();
+  });
+  $("tour-anterior").addEventListener("click", () => { indice = (indice - 1 + puntos.length) % puntos.length; cargar(indice); });
+  $("tour-siguiente").addEventListener("click", () => { indice = (indice + 1) % puntos.length; cargar(indice); });
+}
+</script>
+</body>
+</html>
