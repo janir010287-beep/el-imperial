@@ -421,6 +421,8 @@ const CONFIG = {
   },
   colorSinDatos: "#bdbdbd",   // gris: lote sin fila en el Sheets o con un estado no listado arriba
   colorConstruccion: "#37474f",
+  opacidadLotes: 0.9,      // intensidad del color de estado del lote (0 a 1)
+  opacidadCasas: 0.5,      // intensidad de la casa plana encima del lote: más baja = se ve más el color del estado
   zoomInicial: 18.6,       // zoom de arranque (más cerca para ver los números de lote)
   // Vista de arranque: "3d" (inclinada) o "2d" (desde arriba). El botón 2D/3D cambia entre ambas.
   vistaInicial: "3d",
@@ -1074,12 +1076,12 @@ map.on("load", async () => {
   // Pisos del parque (senderos, plaza, zona de juegos, biosaludable) — planos, sobre el césped
   map.addLayer({ id: "parque-piso", type: "fill", source: "plano", filter: cat("PARQUE_PISO"),
     layout: { visibility: CONFIG.parque3D ? "visible" : "none" }, paint: { "fill-color": ["get", "color"], "fill-opacity": 1 } });
-  map.addLayer({ id: "lotes", type: "fill", source: "plano", filter: cat("LOTE"), paint: { "fill-color": CONFIG.colorSinDatos, "fill-opacity": 0.85 } });
+  map.addLayer({ id: "lotes", type: "fill", source: "plano", filter: cat("LOTE"), paint: { "fill-color": CONFIG.colorSinDatos, "fill-opacity": CONFIG.opacidadLotes } });
   // Casas: dos capas (plana y en volumen); el botón 🏠 muestra una u otra
   map.addLayer({
     id: "construcciones", type: "fill", source: "plano", filter: cat("CONSTRUCCION"),
     layout: { visibility: CONFIG.casas3D ? "none" : "visible" },
-    paint: { "fill-color": CONFIG.colorConstruccion, "fill-opacity": 0.72 }
+    paint: { "fill-color": CONFIG.colorConstruccion, "fill-opacity": CONFIG.opacidadCasas }
   });
   map.addLayer({
     id: "construcciones-3d", type: "fill-extrusion", source: "plano", filter: cat("CONSTRUCCION"),
@@ -1244,11 +1246,13 @@ function configurarSlider(idMin, idMax, min, max) {
   if (!isFinite(min) || !isFinite(max)) { min = 0; max = 0; }
   min = Math.floor(min); max = Math.ceil(max);
   const sMin = $(idMin), sMax = $(idMax);
-  const antMin = parseFloat(sMin.value), antMax = parseFloat(sMax.value), antRangoMin = parseFloat(sMin.min), antRangoMax = parseFloat(sMax.max);
-  [sMin, sMax].forEach((s) => { s.min = min; s.max = max; s.step = Math.max(1, Math.round((max - min) / 100)); });
-  // Si el usuario ya había movido el filtro, se respeta tras la recarga automática
-  sMin.value = (!isNaN(antMin) && antMin !== antRangoMin) ? antMin : min;
-  sMax.value = (!isNaN(antMax) && antMax !== antRangoMax) ? antMax : max;
+  const antMin = parseFloat(sMin.value), antMax = parseFloat(sMax.value);
+  [sMin, sMax].forEach((s) => { s.min = min; s.max = max; s.step = 1; });
+  // Solo se respeta la posición anterior si el USUARIO movió el filtro (marca "tocado").
+  // Antes se comparaba con el valor por defecto del navegador (50), lo que dejaba el
+  // filtro cerrado al cargar y atenuaba casi todos los lotes.
+  sMin.value = sMin.dataset.tocado === "1" && !isNaN(antMin) ? antMin : min;
+  sMax.value = sMax.dataset.tocado === "1" && !isNaN(antMax) ? antMax : max;
 }
 function llenarSelect(id, valores, textoTodos) {
   const sel = $(id), previo = sel.value;
@@ -1277,8 +1281,8 @@ function actualizarEtiquetasSliders() {
 }
 function enlazarParSlider(idMin, idMax) {
   const sMin = $(idMin), sMax = $(idMax);
-  sMin.addEventListener("input", () => { if (+sMin.value > +sMax.value) sMin.value = sMax.value; actualizarEtiquetasSliders(); aplicarFiltros(); });
-  sMax.addEventListener("input", () => { if (+sMax.value < +sMin.value) sMax.value = sMin.value; actualizarEtiquetasSliders(); aplicarFiltros(); });
+  sMin.addEventListener("input", () => { sMin.dataset.tocado = sMax.dataset.tocado = "1"; if (+sMin.value > +sMax.value) sMin.value = sMax.value; actualizarEtiquetasSliders(); aplicarFiltros(); });
+  sMax.addEventListener("input", () => { sMin.dataset.tocado = sMax.dataset.tocado = "1"; if (+sMax.value < +sMin.value) sMax.value = sMin.value; actualizarEtiquetasSliders(); aplicarFiltros(); });
 }
 enlazarParSlider("filtro-area-min", "filtro-area-max");
 enlazarParSlider("filtro-precio-min", "filtro-precio-max");
@@ -1288,7 +1292,7 @@ function aplicarFiltros() {
   if (!map.getLayer("lotes")) return;
   const aMin = +$("filtro-area-min").value, aMax = +$("filtro-area-max").value;
   const pMin = +$("filtro-precio-min").value, pMax = +$("filtro-precio-max").value;
-  const precioActivo = pMin > rangoPrecio.min || pMax < rangoPrecio.max;
+  const precioActivo = pMin > rangoPrecio.min + 0.5 || pMax < rangoPrecio.max - 0.5;
   const est = $("filtro-estado").value, mz = $("filtro-mz").value;
   const ids = [];
   const todos = Object.keys(datosSheet);
@@ -1306,13 +1310,16 @@ function aplicarFiltros() {
     ids.push(id);
   });
   const dentro = ["in", ["get", "id_lote"], ["literal", ids]];
-  map.setPaintProperty("lotes", "fill-opacity", ["case", dentro, 0.85, 0.15]);
-  map.setPaintProperty("construcciones", "fill-opacity", ["case", dentro, 0.72, 0.15]);
+  map.setPaintProperty("lotes", "fill-opacity", ["case", dentro, CONFIG.opacidadLotes, 0.15]);
+  map.setPaintProperty("construcciones", "fill-opacity", ["case", dentro, CONFIG.opacidadCasas, 0.12]);
   map.setPaintProperty("construcciones-3d", "fill-extrusion-color", ["case", dentro, CONFIG.colorConstruccion, "#cfd8dc"]);
   $("contador-filtro").textContent = ids.length + " de " + todos.length + " lotes";
 }
 $("btn-limpiar-filtros").addEventListener("click", () => {
-  ["area", "precio"].forEach((k) => { $("filtro-" + k + "-min").value = $("filtro-" + k + "-min").min; $("filtro-" + k + "-max").value = $("filtro-" + k + "-max").max; });
+  ["area", "precio"].forEach((k) => {
+    const a = $("filtro-" + k + "-min"), b = $("filtro-" + k + "-max");
+    a.value = a.min; b.value = b.max; a.dataset.tocado = b.dataset.tocado = "";
+  });
   $("filtro-estado").value = ""; $("filtro-mz").value = "";
   actualizarEtiquetasSliders(); aplicarFiltros();
 });
