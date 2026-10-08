@@ -47,8 +47,11 @@
   .sidebar-logo-top .logo-texto { font-family: var(--fuente-titulo); color: var(--primario); font-size: 20px; letter-spacing: 2px; padding: 18px 0 6px; }
   .sidebar-logo-bottom { margin-top: auto; padding: 14px 20px 18px; text-align: center; }
   .sidebar-logo-bottom img { width: 96px; height: 96px; display: inline-block; }
+  #grupo-equipo { margin-top: 10px; padding-top: 6px; border-top: 1px solid #eef1ef; }
+  #grupo-equipo .titulo-grupo { padding: 8px 18px 2px; font-size: 11.5px; font-weight: 700; color: #8a948d; }
+  #grupo-equipo .item { padding: 11px 18px; font-size: 13.5px; }
   #link-admin {
-    display: block; text-align: center; padding: 8px 12px; margin: 14px 14px 10px;
+    display: block; text-align: center; padding: 8px 12px; margin: 10px 14px 10px;
     font-size: 11px; color: #6b7280; text-decoration: none; border: 1px solid #d9dfdb; border-radius: 5px;
   }
   #link-admin:hover { color: var(--primario); border-color: var(--primario); }
@@ -93,9 +96,16 @@
   .ctrl-vista .btn-casas { display: flex; align-items: center; justify-content: center; color: #444; }
 
   /* Modelo de vivienda embebido (recorrido Marzipano) */
-  #vista-modelo { position: absolute; top: 44px; bottom: 0; left: 210px; right: 0; z-index: 3; background: #000; display: none; }
-  #vista-modelo iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-  #modelo-cargando { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ccc; font-size: 14px; pointer-events: none; }
+  .vista-embebida { position: absolute; top: 44px; bottom: 0; left: 210px; right: 0; z-index: 3; background: #f5f6f8; display: none; }
+  #vista-modelo { background: #000; }
+  .vista-embebida iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+  .embebida-cargando { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #888; font-size: 14px; pointer-events: none; text-align: center; max-width: 80%; line-height: 1.5; }
+  #vista-modelo .embebida-cargando { color: #ccc; }
+  .embebida-externo {
+    position: absolute; bottom: 12px; right: 14px; z-index: 2; background: rgba(255,255,255,0.92); color: #555;
+    padding: 5px 11px; border-radius: 14px; font-size: 11px; text-decoration: none; border: 1px solid #d9dfdb;
+  }
+  .embebida-externo:hover { color: var(--primario); border-color: var(--primario); }
 
   /* Panel derecho */
   #panel-derecho {
@@ -200,7 +210,7 @@
     #btn-hamburguesa { display: block; }
     #sidebar-izq { width: 240px; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 7; }
     #sidebar-izq.abierta { transform: translateX(0); }
-    #map, #vista-secciones, #vista-modelo { left: 0; }
+    #map, #vista-secciones, .vista-embebida { left: 0; }
     #barra-filtros { left: 12px; }
     #contenido-filtros { flex-direction: column; align-items: stretch; }
     #barra-filtros .campo-slider { width: 100%; }
@@ -229,7 +239,13 @@
   <div class="item" data-seccion="financiamiento"><span class="icono">💰</span> Financiamiento</div>
   <div class="item" data-seccion="documentacion"><span class="icono">📄</span> Documentación</div>
   <div class="item" data-seccion="contacto"><span class="icono">📞</span> Contacto</div>
-  <a id="link-admin" target="_blank" rel="noopener">🔑 Administrador</a>
+  <!-- Acceso del equipo: sistemas internos, cada uno con su propio inicio de sesión -->
+  <div id="grupo-equipo">
+    <div class="titulo-grupo">Equipo</div>
+    <div class="item" data-seccion="leads"><span class="icono">👥</span> Control de leads</div>
+    <div class="item" data-seccion="cobranza"><span class="icono">🧾</span> Cobranza</div>
+    <a id="link-admin" target="_blank" rel="noopener">🔑 Administrador</a>
+  </div>
   <div class="sidebar-logo-bottom"><img id="logo-proyecto-img" alt="El Imperial Urbanización" /></div>
 </div>
 
@@ -335,9 +351,21 @@
   </div>
 </div>
 
-<div id="vista-modelo">
+<!-- Páginas embebidas: se cargan la primera vez que se abren y quedan abiertas
+     (así la sesión de leads / cobranza no se pierde al volver al plano) -->
+<div class="vista-embebida" id="vista-leads" data-externo="1">
+  <iframe title="Control de leads" allow="clipboard-write"></iframe>
+  <div class="embebida-cargando">Cargando control de leads…</div>
+  <a class="embebida-externo" target="_blank" rel="noopener">Abrir en pestaña nueva ↗</a>
+</div>
+<div class="vista-embebida" id="vista-cobranza" data-externo="1">
+  <iframe title="Cobranza" allow="clipboard-write"></iframe>
+  <div class="embebida-cargando">Cargando cobranza…</div>
+  <a class="embebida-externo" target="_blank" rel="noopener">Abrir en pestaña nueva ↗</a>
+</div>
+<div class="vista-embebida" id="vista-modelo">
   <iframe id="iframe-modelo" title="Recorrido del modelo de vivienda" allow="fullscreen; accelerometer; gyroscope; xr-spatial-tracking" allowfullscreen></iframe>
-  <div id="modelo-cargando">Cargando recorrido…</div>
+  <div id="modelo-cargando" class="embebida-cargando">Cargando recorrido…</div>
 </div>
 
 <div id="leyenda"></div>
@@ -398,6 +426,17 @@ const CONFIG = {
 
   // Recorrido de la casa modelo (Marzipano), se muestra embebido en "Modelo de vivienda"
   linkModeloVivienda: "https://elimperialv1.netlify.app/",
+
+  // --- Sistemas del equipo (cada uno con su propio usuario y clave) ---
+  // Control de leads: el archivo leads-index.html subido en la MISMA carpeta que este index.html
+  // (con su API_URL ya configurada). También puede ser la URL /exec de su Apps Script.
+  urlControlLeads: "leads-index.html",
+  // Cobranza: URL de la aplicación web de Apps Script (termina en /exec). Vacío = muestra aviso.
+  urlCobranza: "",
+  // "siempre" = el grupo Equipo se ve en la barra lateral para todos.
+  // "enlace"  = solo aparece si se abre el visor con ?equipo al final del link
+  //             (ej. https://tu-sitio.netlify.app/?equipo). Los clientes no lo ven.
+  accesoEquipo: "siempre",
   // Link de EDICIÓN del Sheets para el botón 🔑 Administrador (el acceso lo protege Google)
   linkAdministrador: "https://docs.google.com/spreadsheets/d/1r_hlP7p8sgHkVEZ3rRRjH_5K5DXYVWFeVTKZdrzM0q0/edit?usp=sharing",
   // Carpeta de Google Drive de la sección Documentación
@@ -646,16 +685,11 @@ document.querySelectorAll("#sidebar-izq .item[data-seccion]").forEach((item) => 
     cerrarSidebarMovil();
     const seccion = item.dataset.seccion;
     const vista = $("vista-secciones");
-    const vistaModelo = $("vista-modelo");
-    vistaModelo.style.display = seccion === "modelo" ? "block" : "none";
-    if (seccion === "modelo") {
+    document.querySelectorAll(".vista-embebida").forEach((v) => v.style.display = "none");
+    if (EMBEBIDOS[seccion]) {
       vista.style.display = "none";
       panelDerecho.classList.remove("abierto");
-      const iframe = $("iframe-modelo");
-      if (!iframe.src) {   // se carga solo la primera vez que se abre (no pesa al inicio)
-        iframe.addEventListener("load", () => $("modelo-cargando").style.display = "none", { once: true });
-        iframe.src = CONFIG.linkModeloVivienda;
-      }
+      abrirEmbebido(seccion);
       return;
     }
     if (seccion === "plano") { vista.style.display = "none"; return; }
@@ -664,6 +698,37 @@ document.querySelectorAll("#sidebar-izq .item[data-seccion]").forEach((item) => 
     $("seccion-" + seccion).classList.add("activa");
   });
 });
+
+// Páginas embebidas: sección → URL
+const EMBEBIDOS = {
+  modelo: () => CONFIG.linkModeloVivienda,
+  leads: () => CONFIG.urlControlLeads,
+  cobranza: () => CONFIG.urlCobranza
+};
+function abrirEmbebido(seccion) {
+  const cont = $("vista-" + seccion);
+  cont.style.display = "block";
+  const iframe = cont.querySelector("iframe");
+  const aviso = cont.querySelector(".embebida-cargando");
+  const url = EMBEBIDOS[seccion]();
+  const externo = cont.querySelector(".embebida-externo");
+  if (!url) {
+    aviso.innerHTML = "Este acceso aún no está configurado.<br>Pega la URL en <b>CONFIG</b> del index.html.";
+    if (externo) externo.style.display = "none";
+    return;
+  }
+  if (externo) { externo.href = url; externo.style.display = ""; }
+  if (!iframe.getAttribute("src")) {   // se carga solo la primera vez; luego conserva la sesión
+    iframe.addEventListener("load", () => aviso.style.display = "none", { once: true });
+    iframe.src = url;
+  }
+}
+
+// Grupo Equipo: visible siempre, o solo con ?equipo en el link
+(function () {
+  const conEnlace = /[?&]equipo\b/i.test(location.search);
+  if (CONFIG.accesoEquipo === "enlace" && !conEnlace) $("grupo-equipo").style.display = "none";
+})();
 
 $("form-contacto").addEventListener("submit", (e) => {
   e.preventDefault();
