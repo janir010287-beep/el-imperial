@@ -239,6 +239,8 @@
   <div class="item" data-seccion="financiamiento"><span class="icono">💰</span> Financiamiento</div>
   <div class="item" data-seccion="documentacion"><span class="icono">📄</span> Documentación</div>
   <div class="item" data-seccion="contacto"><span class="icono">📞</span> Contacto</div>
+  <!-- Portal de clientes: consulta de pagos con DNI + código (solo lectura, lo sirve el Apps Script de cobranza) -->
+  <div class="item" data-seccion="mispagos" id="item-mispagos"><span class="icono">💳</span> Consulta tus pagos</div>
   <!-- Acceso del equipo: sistemas internos, cada uno con su propio inicio de sesión -->
   <div id="grupo-equipo">
     <div class="titulo-grupo">Equipo</div>
@@ -363,6 +365,11 @@
   <div class="embebida-cargando">Cargando cobranza…</div>
   <a class="embebida-externo" target="_blank" rel="noopener">Abrir en pestaña nueva ↗</a>
 </div>
+<div class="vista-embebida" id="vista-mispagos" data-externo="1">
+  <iframe title="Consulta tus pagos"></iframe>
+  <div class="embebida-cargando">Cargando consulta de pagos…</div>
+  <a class="embebida-externo" target="_blank" rel="noopener">Abrir en pestaña nueva ↗</a>
+</div>
 <div class="vista-embebida" id="vista-modelo">
   <iframe id="iframe-modelo" title="Recorrido del modelo de vivienda" allow="fullscreen; accelerometer; gyroscope; xr-spatial-tracking" allowfullscreen></iframe>
   <div id="modelo-cargando" class="embebida-cargando">Cargando recorrido…</div>
@@ -437,6 +444,9 @@ const CONFIG = {
   // "enlace"  = solo aparece si se abre el visor con ?equipo al final del link
   //             (ej. https://tu-sitio.netlify.app/?equipo). Los clientes no lo ven.
   accesoEquipo: "siempre",
+  // Botón "Consulta tus pagos" para los clientes (usa la misma URL de cobranza con ?vista=cliente).
+  // Link directo para enviar a clientes: https://tu-sitio.netlify.app/?pagos
+  mostrarConsultaPagos: true,
   // Link de EDICIÓN del Sheets para el botón 🔑 Administrador (el acceso lo protege Google)
   linkAdministrador: "https://docs.google.com/spreadsheets/d/1r_hlP7p8sgHkVEZ3rRRjH_5K5DXYVWFeVTKZdrzM0q0/edit?usp=sharing",
   // Carpeta de Google Drive de la sección Documentación
@@ -703,7 +713,8 @@ document.querySelectorAll("#sidebar-izq .item[data-seccion]").forEach((item) => 
 const EMBEBIDOS = {
   modelo: () => CONFIG.linkModeloVivienda,
   leads: () => CONFIG.urlControlLeads,
-  cobranza: () => CONFIG.urlCobranza
+  cobranza: () => CONFIG.urlCobranza,
+  mispagos: () => CONFIG.urlCobranza ? CONFIG.urlCobranza + (CONFIG.urlCobranza.indexOf("?") >= 0 ? "&" : "?") + "vista=cliente" : ""
 };
 function abrirEmbebido(seccion) {
   const cont = $("vista-" + seccion);
@@ -728,6 +739,13 @@ function abrirEmbebido(seccion) {
 (function () {
   const conEnlace = /[?&]equipo\b/i.test(location.search);
   if (CONFIG.accesoEquipo === "enlace" && !conEnlace) $("grupo-equipo").style.display = "none";
+})();
+
+// Consulta de pagos: se oculta si está desactivada; con ?pagos en el link se abre directamente
+(function () {
+  const item = $("item-mispagos");
+  if (CONFIG.mostrarConsultaPagos === false) { item.style.display = "none"; return; }
+  if (/[?&]pagos\b/i.test(location.search)) setTimeout(() => item.click(), 0); // tras cargar todo el script
 })();
 
 $("form-contacto").addEventListener("submit", (e) => {
