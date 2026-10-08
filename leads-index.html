@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Control de Leads</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2457e6">
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--tx:#1b2333;--mut:#6b7488;--pri:#2457e6;--pri2:#e8eefc;--ok:#12a150;--ok2:#e3f6ea;--warn:#b87400;--warn2:#fff3d9;--bad:#d33a3a;--bad2:#fde8e8;--bd:#e3e7f0;--r:14px}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1420;--card:#181f2f;--tx:#e8ecf5;--mut:#93a0b8;--pri:#6b93ff;--pri2:#1e2a4a;--ok:#3ccf7a;--ok2:#12301f;--warn:#f0b43c;--warn2:#352a10;--bad:#ff7070;--bad2:#3a1b1b;--bd:#263049}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body.lock{overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--pri);text-decoration:none}
+#app{max-width:720px;margin:0 auto;min-height:100vh;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+.top{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top))}
+.top h1{font-size:18px;margin:0}
+.top small{display:block;color:var(--mut);font-size:12px}
+.av{width:38px;height:38px;border-radius:50%;border:0;background:var(--pri);color:#fff;font-weight:700;font-size:16px}
+main{padding:14px 16px}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--bd);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+.nav button{flex:1;border:0;background:none;padding:9px 2px 8px;color:var(--mut);font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.nav button span{font-size:20px;line-height:1}
+.nav button.on{color:var(--pri);font-weight:600}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 10px;font-size:14px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--bd);background:var(--card);border-radius:999px;padding:7px 14px;font-size:14px}
+.chip.on{background:var(--pri);border-color:var(--pri);color:#fff}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+@media(min-width:520px){.kpis{grid-template-columns:repeat(4,1fr)}}
+.kpi{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:12px}
+.kpi b{display:block;font-size:24px;line-height:1.1}
+.kpi span{color:var(--mut);font-size:12px}
+.alerts{display:flex;gap:10px;margin-bottom:12px}
+.alert{flex:1;border:0;border-radius:var(--r);padding:12px;text-align:left}
+.alert b{display:block;font-size:22px}
+.alert span{font-size:12px}
+.alert.w{background:var(--warn2);color:var(--warn)}
+.alert.b{background:var(--bad2);color:var(--bad)}
+.alert.z{background:var(--ok2);color:var(--ok)}
+.hero{background:linear-gradient(135deg,var(--pri),#5b3fd1);color:#fff;border-radius:var(--r);padding:16px;margin-bottom:12px}
+.hero b{font-size:30px;display:block;line-height:1.1}
+.hero span{opacity:.9;font-size:13px}
+.bar{height:8px;background:var(--pri2);border-radius:99px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--pri);border-radius:99px}
+.hero .bar{background:rgba(255,255,255,.25)}.hero .bar i{background:#fff}
+.emb{display:flex;align-items:center;gap:10px;padding:6px 0;border:0;background:none;width:100%;text-align:left}
+.emb .n{width:110px;font-size:13px;flex:none}
+.emb .bar{flex:1;margin:0}
+.emb .c{width:28px;text-align:right;font-weight:600;font-size:13px}
+.rk{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--bd);cursor:pointer}
+.rk:first-of-type{border-top:0}
+.pos{width:30px;height:30px;border-radius:50%;background:var(--pri2);color:var(--pri);display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}
+.pos.p1{background:#f7c948;color:#5a4300}.pos.p2{background:#cfd6e2;color:#3a4357}.pos.p3{background:#e3b184;color:#53310f}
+.rkm{flex:1;min-width:0}
+.rkm b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rkm small,.sm{color:var(--mut);font-size:12px}
+.rkv{text-align:right}
+.rkv b{display:block}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.tag{font-size:11px;border-radius:99px;padding:2px 8px;background:var(--pri2);color:var(--pri)}
+.tag.w{background:var(--warn2);color:var(--warn)}.tag.b{background:var(--bad2);color:var(--bad)}.tag.g{background:var(--ok2);color:var(--ok)}
+.team{border-top:1px solid var(--bd);padding:10px 0}
+.team:first-of-type{border-top:0}
+.team .row{display:flex;justify-content:space-between;align-items:center}
+.search{width:100%;border:1px solid var(--bd);background:var(--card);border-radius:12px;padding:11px 14px;margin-bottom:10px}
+.lead{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:12px;margin-bottom:10px}
+.lh{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.lh b{font-size:16px}
+.badge{flex:none;font-size:11px;border-radius:99px;padding:3px 9px;background:var(--pri2);color:var(--pri);font-weight:600}
+.badge.ok{background:var(--ok2);color:var(--ok)}.badge.bad{background:var(--bad2);color:var(--bad)}.badge.mut{background:var(--bd);color:var(--mut)}
+.la{display:flex;gap:8px;margin-top:10px}
+.btn{border:0;background:var(--pri);color:#fff;border-radius:11px;padding:11px 16px;font-weight:600;text-align:center;display:inline-block}
+.btn.s{background:var(--pri2);color:var(--pri)}
+.btn.g{background:var(--ok2);color:var(--ok)}
+.btn.d{background:var(--bad2);color:var(--bad)}
+.btn.sm{padding:8px 12px;font-size:13px}
+.btn.f{width:100%}
+.btn:disabled{opacity:.55}
+.la .btn{flex:none}.la .btn.main{flex:1}
+.fab{position:fixed;right:16px;bottom:calc(88px + env(safe-area-inset-bottom));z-index:6;width:56px;height:56px;border-radius:50%;border:0;background:var(--pri);color:#fff;font-size:28px;box-shadow:0 6px 18px rgba(0,0,0,.28)}
+.ov{position:fixed;inset:0;z-index:20;background:rgba(10,14,25,.55);display:flex;align-items:flex-end;justify-content:center}
+.sh{background:var(--card);width:100%;max-width:720px;max-height:92vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column}
+.shh{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--bd)}
+.shh b{font-size:17px}
+.x{border:0;background:var(--pri2);color:var(--pri);width:34px;height:34px;border-radius:50%;font-size:16px}
+.shb{padding:14px 16px calc(20px + env(safe-area-inset-bottom));overflow-y:auto}
+label{display:block;font-size:12px;color:var(--mut);margin:12px 0 4px;font-weight:600}
+input,select,textarea{width:100%;border:1px solid var(--bd);background:var(--bg);border-radius:11px;padding:11px 12px}
+textarea{min-height:76px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{border:1px solid var(--bd);background:var(--bg);border-radius:10px;padding:8px 12px;font-size:14px}
+.seg button.on{background:var(--pri);border-color:var(--pri);color:#fff}
+.hist{border-left:2px solid var(--bd);margin:6px 0 0 6px;padding-left:12px}
+.hi{margin-bottom:12px}.hi small{color:var(--mut);display:block;font-size:12px}
+.err{color:var(--bad);font-size:13px;min-height:18px;margin-top:8px}
+.empty,.load{text-align:center;color:var(--mut);padding:30px 10px}
+#toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:50;background:#1b2333;color:#fff;border-radius:12px;padding:11px 16px;font-size:14px;max-width:90%;display:none;text-align:center}
+#toast.bad{background:var(--bad);color:#fff}
+.login{max-width:380px;margin:0 auto;padding:12vh 24px 24px}
+.login h1{font-size:26px;margin:0 0 4px}.login p{color:var(--mut);margin:0 0 20px}
+.pass{background:var(--pri2);border-radius:12px;padding:14px;text-align:center;font-size:24px;font-weight:700;letter-spacing:.08em;margin:12px 0;user-select:all}
+.ur{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--bd)}
+.ur .rkm{cursor:pointer}
+.grp{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 4px;font-weight:700}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="sheetwrap"></div>
+<div id="toast"></div>
+
+<script>
+/* ═══════ Estado y utilidades ═══════ */
+var S = {token:null,user:null,cfg:null,tab:'panel',leads:[],leadsOk:false,dash:null,per:'mes',
+         q:'',fEstado:'',flag:'',fAsesor:'',users:null,asesores:null};
+var $ = function(s,r){return (r||document).querySelector(s)};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return null}}
+function money(n){return (S.cfg?S.cfg.moneda:'S/')+' '+Number(n||0).toLocaleString('es-PE',{maximumFractionDigits:0})}
+var toastT;
+function toast(m,bad){var t=$('#toast');t.textContent=m;t.className=bad?'bad':'';t.style.display='block';clearTimeout(toastT);toastT=setTimeout(function(){t.style.display='none'},3200)}
+function cerrado(e){return e==='Vendido'||e==='Perdido'}
+function fdate(s){if(!s)return '';var m=String(s).match(/^(\d{4})-(\d\d)-(\d\d)(?:[ T](\d\d):(\d\d))?/);return m?m[3]+'/'+m[2]+(m[4]?' '+m[4]+':'+m[5]:''):s}
+function diasDesde(s){var d=new Date(String(s).replace(' ','T'));return Math.floor((Date.now()-d.getTime())/864e5)}
+function hoyIso(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
+function wa(t){t=String(t||'').replace(/\D/g,'');return 'https://wa.me/'+(t.length===9?'51'+t:t)}
+function inicial(n){return esc((n||'?').trim().charAt(0).toUpperCase())}
+var ROL={asesor:'Asesor',lider:'Líder de equipo',gerente:'Gerente',admin:'Administrador general'};
+
+/* URL de tu Apps Script (Implementar → Aplicación web → copiar URL que termina en /exec) */
+var API_URL='https://script.google.com/macros/s/AKfycbwb2ssna-rPkVoZrHxtEyAn5iWAJY1yXwla56VZ50CLCsGpZFSZpPFrb85aodxiFxxw/exec';
+function api(action,params){
+  return new Promise(function(res,rej){
+    function manejar(r){
+      if(r&&r.ok)res(r.data);
+      else if(r&&r.auth){logout(true);rej(new Error('Sesión vencida'))}
+      else rej(new Error((r&&r.error)||'Error inesperado'));
+    }
+    /* Dentro de Apps Script usa google.script.run; en GitHub usa fetch */
+    if(window.google&&google.script&&google.script.run){
+      google.script.run.withSuccessHandler(manejar)
+        .withFailureHandler(function(e){rej(new Error((e&&e.message)||'Sin conexión'))})
+        .api(action,S.token,params||{});
+      return;
+    }
+    if(!/^https:\/\/script\.google\.com\//.test(API_URL)){rej(new Error('Falta configurar API_URL al inicio del script'));return}
+    fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:action,token:S.token,params:params||{}})})
+      .then(function(r){return r.json()})
+      .then(manejar)
+      .catch(function(){rej(new Error('Sin conexión. Revisa tu internet e intenta de nuevo.'))});
+  });
+}
+function act(btn,p){
+  if(btn)btn.disabled=true;
+  return p.then(function(r){if(btn)btn.disabled=false;return r},
+    function(e){if(btn)btn.disabled=false;toast(e.message,true);return Promise.reject(e)});
+}
+
+/* ═══════ Hojas (modales) ═══════ */
+function openSheet(title,html,opt){
+  opt=opt||{};
+  var w=$('#sheetwrap');
+  w.innerHTML='<div class="ov"><div class="sh"><div class="shh"><b>'+esc(title)+'</b>'+(opt.force?'':'<button class="x" id="shx">✕</button>')+'</div><div class="shb">'+html+'</div></div></div>';
+  document.body.classList.add('lock');
+  var ov=w.firstChild;
+  ov.addEventListener('click',function(e){if(e.target===ov&&!opt.force)closeSheet()});
+  var x=$('#shx');if(x)x.onclick=closeSheet;
+  return $('.shb',w);
+}
+function closeSheet(){$('#sheetwrap').innerHTML='';document.body.classList.remove('lock')}
+
+/* ═══════ Sesión ═══════ */
+function logout(silent){
+  store('leads_tk',null);S.token=null;S.user=null;S.leads=[];S.leadsOk=false;S.users=null;S.asesores=null;S.dash=null;
+  closeSheet();showLogin(silent?'Tu sesión venció. Ingresa nuevamente.':'');
+}
+function showLogin(msg){
+  $('#app').innerHTML=`<div class="login"><h1>Control de Leads</h1><p>Ingresa con tu usuario y contraseña</p>
+  <form id="lf"><label>Usuario</label><input id="lu" autocomplete="username" autocapitalize="none" autocorrect="off" required>
+  <label>Contraseña</label><input id="lp" type="password" autocomplete="current-password" required>
+  <div class="err" id="le">${esc(msg||'')}</div>
+  <button class="btn f" id="lb" type="submit">Ingresar</button></form></div>`;
+  $('#lf').onsubmit=function(e){
+    e.preventDefault();$('#le').textContent='';
+    act($('#lb'),api('login',{usuario:$('#lu').value,pass:$('#lp').value})).then(function(r){
+      S.token=r.token;store('leads_tk',r.token);return boot();
+    }).catch(function(err){$('#le').textContent=err.message});
+  };
+}
+function boot(){
+  return api('me').then(function(r){
+    S.user=r.user;S.cfg=r.config;S.tab='panel';render();
+    if(S.user.debe_cambiar)pwdSheet(true);
+  });
+}
+
+/* ═══════ Marco y navegación ═══════ */
+function tabsFor(){
+  var t=[['panel','📊','Panel'],['leads','👥','Leads']];
+  if(S.user.rol==='admin'){t.push(['users','🧑‍💼','Usuarios']);t.push(['cfg','⚙️','Ajustes'])}
+  return t;
+}
+var TITULO={panel:'Panel',leads:'Leads',users:'Usuarios',cfg:'Ajustes'};
+function render(){
+  var tabs=tabsFor();
+  $('#app').innerHTML=`<div class="top"><div><h1>${TITULO[S.tab]}</h1><small>${esc(S.user.nombre)} · ${ROL[S.user.rol]}</small></div>
+  <button class="av" id="avb">${inicial(S.user.nombre)}</button></div>
+  <main id="view"></main>
+  <nav class="nav">${tabs.map(function(t){return `<button data-t="${t[0]}" class="${S.tab===t[0]?'on':''}"><span>${t[1]}</span>${t[2]}</button>`}).join('')}</nav>`;
+  $('#avb').onclick=menuSheet;
+  Array.prototype.forEach.call(document.querySelectorAll('.nav button'),function(b){b.onclick=function(){go(b.dataset.t)}});
+  var v=$('#view');
+  ({panel:vPanel,leads:vLeads,users:vUsers,cfg:vCfg})[S.tab](v);
+}
+function go(t){S.tab=t;render();window.scrollTo(0,0)}
+function menuSheet(){
+  var b=openSheet(S.user.nombre,`<p class="sm">${ROL[S.user.rol]} · usuario <b>${esc(S.user.usuario)}</b></p>
+  <button class="btn s f" id="mp">Cambiar contraseña</button><div style="height:10px"></div>
+  <button class="btn d f" id="ml">Cerrar sesión</button>`);
+  $('#mp',b).onclick=function(){pwdSheet(false)};
+  $('#ml',b).onclick=function(){logout(false)};
+}
+function pwdSheet(force){
+  var b=openSheet(force?'Crea tu contraseña':'Cambiar contraseña',`
+  ${force?'<p class="sm">Por seguridad, cambia la contraseña temporal antes de continuar.</p>':''}
+  <label>Contraseña actual</label><input id="p0" type="password" autocomplete="current-password">
+  <label>Nueva contraseña (mín. 6)</label><input id="p1" type="password" autocomplete="new-password">
+  <label>Repite la nueva</label><input id="p2" type="password" autocomplete="new-password">
+  <div class="err" id="pe"></div><button class="btn f" id="pb">Guardar</button>`,{force:force});
+  $('#pb',b).onclick=function(){
+    if($('#p1',b).value!==$('#p2',b).value){$('#pe',b).textContent='Las contraseñas nuevas no coinciden';return}
+    act($('#pb',b),api('changePassword',{actual:$('#p0',b).value,nueva:$('#p1',b).value})).then(function(){
+      S.user.debe_cambiar=false;closeSheet();toast('Contraseña actualizada');
+    }).catch(function(e){$('#pe',b).textContent=e.message});
+  };
+}
+
+/* ═══════ PANEL ═══════ */
+function vPanel(el){
+  var per=[['hoy','Hoy'],['semana','Semana'],['mes','Mes'],['todo','Todo']];
+  el.innerHTML='<div class="chips">'+per.map(function(p){return `<button class="chip ${S.per===p[0]?'on':''}" data-p="${p[0]}">${p[1]}</button>`}).join('')+'</div><div id="pb"><div class="load">Cargando…</div></div>';
+  Array.prototype.forEach.call(el.querySelectorAll('[data-p]'),function(b){b.onclick=function(){S.per=b.dataset.p;vPanel(el)}});
+  api('dashboard',{periodo:S.per}).then(function(d){
+    S.dash=d;var pb=$('#pb');if(!pb)return;
+    pb.innerHTML=panelHtml(d);
+    pb.onclick=function(e){
+      var f=e.target.closest('[data-flag]'),a=e.target.closest('[data-ase]'),s=e.target.closest('[data-est]');
+      if(f){S.flag=f.dataset.flag;S.fEstado='';S.fAsesor='';S.q='';go('leads')}
+      else if(s){S.fEstado=s.dataset.est;S.flag='';S.fAsesor='';S.q='';go('leads')}
+      else if(a&&S.user.rol!=='asesor'){S.fAsesor=a.dataset.ase;S.flag='';S.fEstado='';S.q='';go('leads')}
+    };
+  }).catch(function(e){var pb=$('#pb');if(pb)pb.innerHTML='<div class="empty">'+esc(e.message)+'<br><br><button class="btn s" id="rt">Reintentar</button></div>';var r=$('#rt');if(r)r.onclick=function(){vPanel(el)}});
+}
+function tile(n,l){return `<div class="kpi"><b>${n}</b><span>${l}</span></div>`}
+function panelHtml(d){
+  var t=d.totales||{activos:0,nuevos:0,gestiones:0,ventas:0,monto:0,sin_gestion:0,vencidos:0,asesores:1};
+  var rol=S.user.rol,h='';
+  if(rol==='asesor'){
+    h+=`<div class="hero"><span>Hola, ${esc(S.user.nombre.split(' ')[0])} 👋</span>`+
+      (d.mi_posicion?`<b>#${d.mi_posicion} de ${d.total_equipo}</b><span>en el ranking de tu equipo (${S.per==='todo'?'histórico':'periodo elegido'})</span>`:`<b>${money(t.monto)}</b><span>vendido en el periodo</span>`)+`</div>`;
+  }
+  var meta=d.meta_mensual>0&&d.periodo==='mes'?d.meta_mensual*(t.asesores||1):0;
+  h+=`<div class="kpis">${tile(t.activos,'Leads activos')}${tile(t.nuevos,'Nuevos')}${tile(t.gestiones,'Gestiones')}${tile(t.ventas,'Ventas')}</div>`;
+  h+=`<div class="card"><h3>Monto vendido</h3><b style="font-size:26px">${money(t.monto)}</b>`+
+     (meta?`<div class="sm" style="margin-top:6px">${t.ventas} de ${meta} ventas de la meta del mes</div><div class="bar"><i style="width:${Math.min(100,Math.round(100*t.ventas/meta))}%"></i></div>`:'')+`</div>`;
+  h+=`<div class="alerts"><button class="alert ${t.sin_gestion?'w':'z'}" data-flag="sin"><b>${t.sin_gestion}</b><span>Sin gestión ${S.cfg.dias_alerta}+ días</span></button>
+      <button class="alert ${t.vencidos?'b':'z'}" data-flag="venc"><b>${t.vencidos}</b><span>Seguimientos vencidos</span></button></div>`;
+  var emb=d.embudo||{},mx=Math.max.apply(null,Object.keys(emb).map(function(k){return emb[k]}).concat([1]));
+  h+=`<div class="card"><h3>Embudo</h3>`+Object.keys(emb).map(function(k){
+    return `<button class="emb" data-est="${esc(k)}"><span class="n">${esc(k)}</span><span class="bar"><i style="width:${Math.round(100*emb[k]/mx)}%"></i></span><span class="c">${emb[k]}</span></button>`}).join('')+`</div>`;
+  if(d.gerencias&&d.gerencias.length)h+=`<div class="card"><h3>Gerencias</h3>`+d.gerencias.map(grupoHtml).join('')+`</div>`;
+  if(d.equipos&&d.equipos.length)h+=`<div class="card"><h3>Equipos</h3>`+d.equipos.map(grupoHtml).join('')+`</div>`;
+  if(d.ranking)h+=`<div class="card"><h3>Ranking de asesores</h3>`+(d.ranking.length?d.ranking.map(rankHtml).join(''):'<div class="empty">Aún no hay asesores</div>')+`</div>`;
+  return h;
+}
+function grupoHtml(g){
+  return `<div class="team"><div class="row"><b>${esc(g.nombre)}</b><span class="sm">${g.asesores} asesor${g.asesores===1?'':'es'}</span></div>
+  ${g.jefe&&g.jefe!=='—'?`<div class="sm">${g.rol==='lider'?'Gerente':'Líder'}: ${esc(g.jefe)}</div>`:''}
+  <div class="tags"><span class="tag g">${g.ventas} ventas · ${money(g.monto)}</span><span class="tag">${g.activos} activos</span><span class="tag">${g.gestiones} gestiones</span>
+  ${g.sin_gestion?`<span class="tag w">${g.sin_gestion} sin gestión</span>`:''}${g.vencidos?`<span class="tag b">${g.vencidos} vencidos</span>`:''}</div></div>`;
+}
+function rankHtml(r){
+  var pc=r.pos<=3?' p'+r.pos:'';
+  return `<div class="rk" data-ase="${esc(r.id)}"><div class="pos${pc}">${r.pos}</div>
+  <div class="rkm"><b>${esc(r.nombre)}${r.activo?'':' (inactivo)'}</b><small>${esc(r.lider)} · ${r.activos} activos · ${r.gestiones} gestiones</small>
+  <div class="tags">${r.sin_gestion?`<span class="tag w">${r.sin_gestion} sin gestión</span>`:''}${r.vencidos?`<span class="tag b">${r.vencidos} vencidos</span>`:''}</div></div>
+  <div class="rkv"><b>${r.ventas} venta${r.ventas===1?'':'s'}</b><small>${money(r.monto)}</small></div></div>`;
+}
+
+/* ═══════ LEADS ═══════ */
+function loadLeads(){return api('listLeads').then(function(l){S.leads=l;S.leadsOk=true;return l})}
+function leadFlags(l){
+  var f={};
+  if(cerrado(l.estado))return f;
+  var base=(l.ultima_gestion||l.fecha_registro);
+  if(diasDesde(base)>=S.cfg.dias_alerta)f.sin=diasDesde(base);
+  if(l.proxima_fecha&&l.proxima_fecha.slice(0,10)<hoyIso())f.venc=true;
+  if(l.proxima_fecha&&l.proxima_fecha.slice(0,10)===hoyIso())f.hoy=true;
+  return f;
+}
+function filtrar(){
+  var q=S.q.trim().toLowerCase();
+  return S.leads.filter(function(l){
+    if(S.fAsesor&&l.asesor_id!==S.fAsesor)return false;
+    if(S.fEstado==='activos'&&cerrado(l.estado))return false;
+    if(S.fEstado&&S.fEstado!=='activos'&&l.estado!==S.fEstado)return false;
+    if(S.flag){var f=leadFlags(l);if(!f[S.flag])return false}
+    if(q&&(l.nombre+' '+l.telefono+' '+l.proyecto).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  });
+}
+function badgeCls(e){return e==='Vendido'?'ok':e==='Perdido'?'bad':e==='Nuevo'?'mut':''}
+function vLeads(el){
+  var rol=S.user.rol,ases={};
+  S.leads.forEach(function(l){ases[l.asesor_id]=l.asesor_nombre});
+  var chips=[['','Activos y cerrados'],['activos','Solo activos']].concat(S.cfg.estados.map(function(e){return [e,e]}));
+  var flags=[['sin','⚠ Sin gestión'],['venc','⏰ Vencidos'],['hoy','📅 Para hoy']];
+  el.innerHTML=`<input class="search" id="q" type="search" placeholder="Buscar nombre, teléfono o proyecto" value="${esc(S.q)}">
+  ${rol!=='asesor'?`<select id="fa" style="margin-bottom:10px"><option value="">Todos los asesores</option>${Object.keys(ases).sort(function(a,b){return ases[a].localeCompare(ases[b])}).map(function(id){return `<option value="${esc(id)}" ${S.fAsesor===id?'selected':''}>${esc(ases[id])}</option>`}).join('')}</select>`:''}
+  <div class="chips" id="fl">${flags.map(function(f){return `<button class="chip ${S.flag===f[0]?'on':''}" data-f="${f[0]}">${f[1]}</button>`}).join('')}</div>
+  <div class="chips" id="fe">${chips.map(function(c){return `<button class="chip ${S.fEstado===c[0]?'on':''}" data-e="${esc(c[0])}">${esc(c[1])}</button>`}).join('')}</div>
+  <div id="ll"><div class="load">Cargando…</div></div><button class="fab" id="nl" aria-label="Nuevo lead">＋</button>`;
+  $('#q').oninput=function(){S.q=this.value;pintarLista()};
+  if($('#fa'))$('#fa').onchange=function(){S.fAsesor=this.value;pintarLista()};
+  $('#fl').onclick=function(e){var b=e.target.closest('[data-f]');if(!b)return;S.flag=S.flag===b.dataset.f?'':b.dataset.f;vLeads(el)};
+  $('#fe').onclick=function(e){var b=e.target.closest('[data-e]');if(!b)return;S.fEstado=b.dataset.e;vLeads(el)};
+  $('#nl').onclick=function(){leadForm(null)};
+  $('#ll').onclick=function(e){
+    if(e.target.closest('a'))return;
+    var g=e.target.closest('[data-g]'),c=e.target.closest('[data-id]');
+    if(g)leadSheet(g.dataset.g,true);else if(c)leadSheet(c.dataset.id);
+  };
+  if(S.leadsOk)pintarLista();
+  loadLeads().then(function(){if($('#ll')){pintarLista();if(rol!=='asesor')vLeadsFiltroAsesores()}}).catch(function(e){if($('#ll')&&!S.leadsOk)$('#ll').innerHTML='<div class="empty">'+esc(e.message)+'</div>'});
+}
+function vLeadsFiltroAsesores(){
+  var fa=$('#fa');if(!fa)return;
+  var ases={};S.leads.forEach(function(l){ases[l.asesor_id]=l.asesor_nombre});
+  fa.innerHTML='<option value="">Todos los asesores</option>'+Object.keys(ases).sort(function(a,b){return ases[a].localeCompare(ases[b])}).map(function(id){return `<option value="${esc(id)}" ${S.fAsesor===id?'selected':''}>${esc(ases[id])}</option>`}).join('');
+}
+function pintarLista(){
+  var ll=$('#ll');if(!ll)return;
+  var rows=filtrar(),rol=S.user.rol;
+  if(!rows.length){ll.innerHTML='<div class="empty">'+(S.leads.length?'Ningún lead coincide con el filtro.':'Aún no hay leads. Toca ＋ para registrar el primero.')+'</div>';return}
+  ll.innerHTML=`<div class="sm" style="margin:0 2px 8px">${rows.length} lead${rows.length===1?'':'s'}${rows.length>80?' (mostrando 80, usa los filtros)':''}</div>`+rows.slice(0,80).map(function(l){
+    var f=leadFlags(l),al='';
+    if(f.venc)al+=`<span class="tag b">⏰ Vencido ${fdate(l.proxima_fecha)}</span>`;
+    else if(l.proxima_fecha&&!cerrado(l.estado))al+=`<span class="tag ${f.hoy?'w':''}">📅 ${fdate(l.proxima_fecha)}</span>`;
+    if(f.sin)al+=`<span class="tag w">⚠ ${f.sin} días sin gestión</span>`;
+    if(l.estado==='Vendido'&&l.monto)al+=`<span class="tag g">${money(l.monto)}</span>`;
+    return `<div class="lead" data-id="${esc(l.id)}"><div class="lh"><b>${esc(l.nombre)}</b><span class="badge ${badgeCls(l.estado)}">${esc(l.estado)}</span></div>
+    <div class="sm">${esc(l.telefono)}${l.proyecto?' · '+esc(l.proyecto):''}${l.origen?' · '+esc(l.origen):''}${rol!=='asesor'?' · 👤 '+esc(l.asesor_nombre):''}</div>
+    ${al?`<div class="tags">${al}</div>`:''}
+    <div class="la"><a class="btn s sm" href="tel:${esc(l.telefono)}">📞 Llamar</a><a class="btn g sm" href="${wa(l.telefono)}" target="_blank" rel="noopener">💬 WhatsApp</a><button class="btn sm main" data-g="${esc(l.id)}">Gestionar</button></div></div>`;
+  }).join('');
+}
+
+/* ── Detalle / seguimiento ── */
+function dtLocal(addDias){var d=new Date(Date.now()+addDias*864e5);d.setHours(10,0,0,0);var p=function(n){return ('0'+n).slice(-2)};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T10:00'}
+function leadSheet(id,focus){
+  var l=S.leads.filter(function(x){return x.id===id})[0];if(!l)return;
+  var rol=S.user.rol,tipo='Llamada';
+  var b=openSheet(l.nombre,`
+  <div class="la" style="margin:0 0 6px"><a class="btn s sm" href="tel:${esc(l.telefono)}">📞 ${esc(l.telefono)}</a><a class="btn g sm" href="${wa(l.telefono)}" target="_blank" rel="noopener">💬 WhatsApp</a><button class="btn s sm" id="ed">✏️ Editar</button></div>
+  <div class="sm">${l.email?esc(l.email)+' · ':''}${l.proyecto?esc(l.proyecto)+' · ':''}${l.origen?esc(l.origen)+' · ':''}Registrado ${fdate(l.fecha_registro)}${rol!=='asesor'?' · 👤 '+esc(l.asesor_nombre):''}</div>
+  ${l.notas?`<div class="card" style="margin:10px 0 0">${esc(l.notas)}</div>`:''}
+  <h3 style="margin:18px 0 0;font-size:14px">Registrar gestión</h3>
+  <label>Tipo</label><div class="seg" id="tp">${['Llamada','WhatsApp','Visita','Nota'].map(function(t){return `<button data-t="${t}" class="${t===tipo?'on':''}">${t}</button>`}).join('')}</div>
+  <label>Estado</label><select id="es">${S.cfg.estados.map(function(e){return `<option ${e===l.estado?'selected':''}>${esc(e)}</option>`}).join('')}</select>
+  <label>Comentario</label><textarea id="co" placeholder="¿Qué se habló? ¿Qué sigue?"></textarea>
+  <div id="pf"><label>Próximo contacto</label><input id="pr" type="datetime-local" value="${esc((l.proxima_fecha||'').replace(' ','T').slice(0,16))}">
+  <div class="seg" style="margin-top:8px"><button data-d="1">Mañana</button><button data-d="3">En 3 días</button><button data-d="7">En 1 semana</button></div></div>
+  <div id="mf" style="display:none"><label>Monto de la venta (${esc(S.cfg.moneda)})</label><input id="mo" type="number" inputmode="decimal" min="0" value="${esc(l.monto||'')}"></div>
+  <div class="err" id="se"></div><button class="btn f" id="sg">Guardar gestión</button>
+  ${rol!=='asesor'?`<h3 style="margin:22px 0 0;font-size:14px">Reasignar</h3><div class="two"><select id="ra"><option value="">Cargando asesores…</option></select><button class="btn s" id="rb">Reasignar</button></div>`:''}
+  <h3 style="margin:22px 0 8px;font-size:14px">Historial</h3><div class="hist" id="hs"><div class="sm">Cargando…</div></div>`);
+  function togg(){var e=$('#es',b).value;$('#pf',b).style.display=cerrado(e)?'none':'block';$('#mf',b).style.display=e==='Vendido'?'block':'none'}
+  togg();$('#es',b).onchange=togg;
+  $('#tp',b).onclick=function(e){var x=e.target.closest('[data-t]');if(!x)return;tipo=x.dataset.t;Array.prototype.forEach.call(this.children,function(c){c.classList.toggle('on',c===x)})};
+  $('#pf',b).onclick=function(e){var x=e.target.closest('[data-d]');if(x)$('#pr',b).value=dtLocal(Number(x.dataset.d))};
+  $('#ed',b).onclick=function(){leadForm(l)};
+  $('#sg',b).onclick=function(){
+    var e=$('#es',b).value;
+    act($('#sg',b),api('addSeguimiento',{lead_id:l.id,tipo:tipo,estado:e,comentario:$('#co',b).value,proxima_fecha:$('#pr',b).value,monto:$('#mo',b).value})).then(function(){
+      closeSheet();toast('Gestión guardada ✔');return loadLeads();
+    }).then(function(){render()}).catch(function(er){$('#se',b).textContent=er.message});
+  };
+  if(rol!=='asesor'){
+    ensureAsesores().then(function(a){
+      var s=$('#ra',b);if(!s)return;
+      s.innerHTML=a.filter(function(x){return x.activo&&x.id!==l.asesor_id}).map(function(x){return `<option value="${esc(x.id)}">${esc(x.nombre)}</option>`}).join('')||'<option value="">Sin otros asesores</option>';
+    });
+    $('#rb',b).onclick=function(){
+      var to=$('#ra',b).value;if(!to)return;
+      act($('#rb',b),api('reasignarLeads',{ids:[l.id],hasta:to})).then(function(){closeSheet();toast('Lead reasignado');return loadLeads()}).then(function(){render()}).catch(function(){});
+    };
+  }
+  api('getSeguimientos',{lead_id:l.id}).then(function(h){
+    var hs=$('#hs');if(!hs)return;
+    hs.innerHTML=h.length?h.map(function(x){return `<div class="hi"><small>${fdate(x.fecha)} · ${esc(x.tipo)} · ${esc(x.autor)}${x.estado_nuevo?' · → '+esc(x.estado_nuevo):''}</small>${esc(x.comentario)||'<i class="sm">(cambio de estado)</i>'}</div>`}).join(''):'<div class="sm">Sin gestiones todavía.</div>';
+  }).catch(function(e){var hs=$('#hs');if(hs)hs.innerHTML='<div class="sm">'+esc(e.message)+'</div>'});
+  if(focus)setTimeout(function(){var c=$('#co',b);if(c)c.focus()},250);
+}
+function ensureAsesores(){
+  if(S.asesores)return Promise.resolve(S.asesores);
+  return api('dashboard',{periodo:'todo'}).then(function(d){S.asesores=(d.ranking||[]).map(function(r){return {id:r.id,nombre:r.nombre,activo:r.activo}});return S.asesores});
+}
+function leadForm(l){
+  var rol=S.user.rol,nuevo=!l;
+  var b=openSheet(nuevo?'Nuevo lead':'Editar lead',`
+  <label>Nombre completo *</label><input id="fn" value="${esc(l?l.nombre:'')}" autocomplete="off">
+  <label>Teléfono / WhatsApp *</label><input id="ft" type="tel" inputmode="tel" value="${esc(l?l.telefono:'')}">
+  <label>Email</label><input id="fm" type="email" value="${esc(l?l.email:'')}">
+  <div class="two"><div><label>Proyecto de interés</label><input id="fp" list="pl" value="${esc(l?l.proyecto:'')}"><datalist id="pl">${S.cfg.proyectos.map(function(p){return `<option value="${esc(p)}">`}).join('')}</datalist></div>
+  <div><label>Origen</label><select id="fo"><option value="">—</option>${S.cfg.origenes.map(function(o){return `<option ${l&&l.origen===o?'selected':''}>${esc(o)}</option>`}).join('')}</select></div></div>
+  ${rol!=='asesor'?`<label>Asesor responsable *</label><select id="fa2"><option value="">Cargando…</option></select>`:''}
+  ${nuevo?`<label>Próximo contacto</label><input id="fx" type="datetime-local" value="${dtLocal(1)}">`:''}
+  <label>Notas</label><textarea id="fq">${esc(l?l.notas:'')}</textarea>
+  <div class="err" id="fe2"></div><button class="btn f" id="fs">Guardar</button>`);
+  if(rol!=='asesor'){
+    ensureAsesores().then(function(a){
+      var s=$('#fa2',b);if(!s)return;
+      s.innerHTML='<option value="">Elige asesor…</option>'+a.filter(function(x){return x.activo||(l&&l.asesor_id===x.id)}).map(function(x){return `<option value="${esc(x.id)}" ${l&&l.asesor_id===x.id?'selected':''}>${esc(x.nombre)}</option>`}).join('');
+    });
+  }
+  $('#fs',b).onclick=function(){
+    var d={id:l?l.id:'',nombre:$('#fn',b).value,telefono:$('#ft',b).value,email:$('#fm',b).value,proyecto:$('#fp',b).value,origen:$('#fo',b).value,notas:$('#fq',b).value};
+    if($('#fa2',b))d.asesor_id=$('#fa2',b).value;
+    if($('#fx',b))d.proxima_fecha=$('#fx',b).value;
+    act($('#fs',b),api('saveLead',{lead:d})).then(function(){closeSheet();toast(nuevo?'Lead registrado ✔':'Lead actualizado');return loadLeads()}).then(function(){render()}).catch(function(e){$('#fe2',b).textContent=e.message});
+  };
+  if(nuevo)setTimeout(function(){$('#fn',b).focus()},250);
+}
+
+/* ═══════ USUARIOS (admin) ═══════ */
+function vUsers(el){
+  el.innerHTML='<div class="load">Cargando…</div>';
+  api('listUsers').then(function(u){S.users=u;pintarUsers(el)}).catch(function(e){el.innerHTML='<div class="empty">'+esc(e.message)+'</div>'});
+}
+function pintarUsers(el){
+  var by={};S.users.forEach(function(u){by[u.id]=u});
+  var h=`<button class="btn f" id="nu">＋ Nuevo usuario</button>`;
+  [['gerente','Gerentes'],['lider','Líderes de equipo'],['asesor','Asesores'],['admin','Administradores']].forEach(function(g){
+    var l=S.users.filter(function(u){return u.rol===g[0]}).sort(function(a,b){return a.nombre.localeCompare(b.nombre)});
+    if(!l.length)return;
+    h+=`<div class="grp">${g[1]} (${l.length})</div><div class="card" style="padding:4px 14px">`+l.map(function(u){
+      return `<div class="ur"><div class="pos">${inicial(u.nombre)}</div><div class="rkm" data-u="${esc(u.id)}"><b>${esc(u.nombre)}</b><small>@${esc(u.usuario)}${u.jefe_id&&by[u.jefe_id]?' · '+esc(by[u.jefe_id].nombre):''}</small></div>${u.activo?'':'<span class="badge bad">Inactivo</span>'}</div>`}).join('')+`</div>`;
+  });
+  el.innerHTML=h;
+  $('#nu').onclick=function(){userSheet(null)};
+  el.onclick=function(e){var r=e.target.closest('[data-u]');if(r)userSheet(by[r.dataset.u])};
+}
+function userSheet(u){
+  var nuevo=!u;
+  var b=openSheet(nuevo?'Nuevo usuario':'Editar usuario',`
+  <label>Nombre completo *</label><input id="un" value="${esc(u?u.nombre:'')}">
+  <label>Usuario (para ingresar) *</label><input id="uu" value="${esc(u?u.usuario:'')}" autocapitalize="none" autocorrect="off" placeholder="ej: jperez">
+  <label>Rol *</label><select id="ur">${['asesor','lider','gerente','admin'].map(function(r){return `<option value="${r}" ${u&&u.rol===r?'selected':''}>${ROL[r]}</option>`}).join('')}</select>
+  <div id="jw"><label id="jl">Superior *</label><select id="uj"></select></div>
+  <label>Teléfono</label><input id="ut" type="tel" value="${esc(u?u.telefono:'')}">
+  ${nuevo?'':`<label><input type="checkbox" id="ua" style="width:auto;margin-right:8px" ${u.activo?'checked':''}>Usuario activo</label>`}
+  <div class="err" id="ue"></div><button class="btn f" id="us">${nuevo?'Crear usuario':'Guardar cambios'}</button>
+  ${nuevo?'':`<div style="height:10px"></div><button class="btn s f" id="up">🔑 Restablecer contraseña</button>
+  ${u.rol==='asesor'?`<div style="height:10px"></div><button class="btn s f" id="uv">↔ Pasar todos sus leads a otro asesor</button>`:''}`}`);
+  function jefes(){
+    var r=$('#ur',b).value,need={asesor:'lider',lider:'gerente'}[r];
+    $('#jw',b).style.display=need?'block':'none';if(!need)return;
+    $('#jl',b).textContent=(need==='lider'?'Líder de equipo':'Gerente')+' *';
+    var cur=$('#uj',b).value||(u?u.jefe_id:'');
+    $('#uj',b).innerHTML='<option value="">Elige…</option>'+S.users.filter(function(x){return x.rol===need&&x.activo}).map(function(x){return `<option value="${esc(x.id)}" ${x.id===cur?'selected':''}>${esc(x.nombre)}</option>`}).join('');
+  }
+  jefes();$('#ur',b).onchange=function(){$('#uj',b).value='';jefes()};
+  $('#us',b).onclick=function(){
+    var d={id:u?u.id:'',nombre:$('#un',b).value,usuario:$('#uu',b).value,rol:$('#ur',b).value,jefe_id:$('#uj',b).value,telefono:$('#ut',b).value,activo:$('#ua',b)?$('#ua',b).checked:true};
+    act($('#us',b),api('saveUser',{user:d})).then(function(r){
+      return api('listUsers').then(function(l){S.users=l;S.asesores=null;
+        if(r.temp)credSheet(d.nombre,d.usuario,r.temp);else{closeSheet();toast('Usuario actualizado')}
+        if(S.tab==='users')pintarUsers($('#view'));
+      });
+    }).catch(function(e){$('#ue',b).textContent=e.message});
+  };
+  if(!nuevo){
+    $('#up',b).onclick=function(){
+      if(!confirm('¿Generar una nueva contraseña temporal para '+u.nombre+'?'))return;
+      act($('#up',b),api('resetPassword',{id:u.id})).then(function(r){credSheet(u.nombre,u.usuario,r.temp)}).catch(function(){});
+    };
+    if($('#uv',b))$('#uv',b).onclick=function(){pasarLeads(u)};
+  }
+}
+function credSheet(nombre,usuario,temp){
+  var msg='Hola '+nombre.split(' ')[0]+', ya tienes acceso al Control de Leads.\nUsuario: '+usuario+'\nContraseña temporal: '+temp+'\nAl ingresar, el sistema te pedirá crear tu propia contraseña.';
+  var b=openSheet('Acceso listo',`<p class="sm">Entrega estos datos a <b>${esc(nombre)}</b>. La contraseña temporal solo se muestra ahora.</p>
+  <div class="sm">Usuario</div><div class="pass" style="font-size:20px">${esc(usuario)}</div>
+  <div class="sm">Contraseña temporal</div><div class="pass">${esc(temp)}</div>
+  <a class="btn g f" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">💬 Enviar por WhatsApp</a>
+  <div style="height:10px"></div><button class="btn s f" id="cc">Copiar mensaje</button>`);
+  $('#cc',b).onclick=function(){
+    var ta=document.createElement('textarea');ta.value=msg;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');toast('Mensaje copiado')}catch(e){toast('No se pudo copiar',true)}ta.remove();
+  };
+}
+function pasarLeads(u){
+  var b=openSheet('Pasar leads',`<p class="sm">Todos los leads de <b>${esc(u.nombre)}</b> pasarán al asesor que elijas (queda registrado en el historial).</p>
+  <label>Asesor destino</label><select id="pd"><option value="">Elige…</option>${S.users.filter(function(x){return x.rol==='asesor'&&x.activo&&x.id!==u.id}).map(function(x){return `<option value="${esc(x.id)}">${esc(x.nombre)}</option>`}).join('')}</select>
+  <div class="err" id="pe2"></div><button class="btn f" id="pg">Pasar leads</button>`);
+  $('#pg',b).onclick=function(){
+    var to=$('#pd',b).value;if(!to){$('#pe2',b).textContent='Elige el asesor destino';return}
+    act($('#pg',b),api('reasignarLeads',{desde:u.id,hasta:to})).then(function(r){closeSheet();S.leadsOk=false;toast(r.reasignados+' lead(s) reasignados')}).catch(function(e){$('#pe2',b).textContent=e.message});
+  };
+}
+
+/* ═══════ AJUSTES (admin) ═══════ */
+function vCfg(el){
+  var c=S.cfg,est=c.estados.filter(function(e){return !cerrado(e)});
+  el.innerHTML=`<div class="card"><h3>Listas (una por línea)</h3>
+  <label>Etapas del lead <span class="sm">(Vendido y Perdido se agregan siempre al final)</span></label><textarea id="ce" rows="6">${esc(est.join('\n'))}</textarea>
+  <label>Orígenes</label><textarea id="co2" rows="5">${esc(c.origenes.join('\n'))}</textarea>
+  <label>Proyectos</label><textarea id="cp" rows="4" placeholder="Un proyecto por línea">${esc(c.proyectos.join('\n'))}</textarea></div>
+  <div class="card"><h3>Reglas</h3>
+  <label>Alertar si un lead lleva sin gestión (días)</label><input id="cd" type="number" min="1" value="${c.dias_alerta}">
+  <label>Meta mensual de ventas por asesor (cantidad, 0 = sin meta)</label><input id="cm" type="number" min="0" value="${c.meta_mensual}">
+  <label>Símbolo de moneda</label><input id="cx" value="${esc(c.moneda)}" maxlength="5"></div>
+  <div class="err" id="cerr"></div><button class="btn f" id="cs">Guardar ajustes</button>`;
+  var lines=function(id){return $(id).value.split('\n').map(function(s){return s.trim()}).filter(Boolean)};
+  $('#cs').onclick=function(){
+    act($('#cs'),api('setConfig',{config:{estados:lines('#ce'),origenes:lines('#co2'),proyectos:lines('#cp'),dias_alerta:$('#cd').value,meta_mensual:$('#cm').value,moneda:$('#cx').value}})).then(function(cfg){
+      S.cfg=cfg;toast('Ajustes guardados ✔');vCfg(el);
+    }).catch(function(e){$('#cerr').textContent=e.message});
+  };
+}
+
+/* ═══════ Inicio ═══════ */
+(function(){
+  S.token=store('leads_tk');
+  if(!S.token){showLogin();return}
+  $('#app').innerHTML='<div class="load" style="padding-top:30vh">Cargando…</div>';
+  boot().catch(function(e){S.token=null;store('leads_tk',null);showLogin(e.message==='Sesión vencida'?'Tu sesión venció. Ingresa nuevamente.':'')});
+})();
+</script>
+</body>
+</html>
